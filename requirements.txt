@@ -1,8 +1,24 @@
-psutil
-pywin32
-python-evtx
-pandas
-reportlab
-pillow
-yara-python
-pyyaml
+# ──────────────────────────────────────────────────────────
+# TriageHound — Requirements (version-pinned for stability)
+# Tested on: Python 3.11 / 3.12 / 3.13, Windows 10/11
+# ──────────────────────────────────────────────────────────
+
+# Core system interrogation
+psutil==7.0.0
+pywin32==310
+
+# Event Log parsing (.evtx files)
+python-evtx==0.8.1
+
+# Data handling & timeline export
+pandas==2.2.3
+
+# Professional PDF report generation
+reportlab==5.0.0
+pillow==11.2.1
+
+# Threat hunting — YARA malware signatures
+yara-python==4.5.4
+
+# Threat hunting — Sigma behavioral detection rules
+PyYAML==6.0.3
