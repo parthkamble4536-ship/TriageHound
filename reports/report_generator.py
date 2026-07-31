@@ -14,63 +14,95 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.flowables import KeepTogether
 
-# ── Colour Palette ────────────────────────────────────────────────────────────
-DARK_BG     = colors.HexColor('#0d1117')
-ACCENT      = colors.HexColor('#1f6feb')
-ACCENT2     = colors.HexColor('#388bfd')
-RED_ALERT   = colors.HexColor('#da3633')
-AMBER       = colors.HexColor('#d29922')
-GREEN_OK    = colors.HexColor('#238636')
-SECTION_BG  = colors.HexColor('#161b22')
-ROW_ALT     = colors.HexColor('#1c2128')
-ROW_NORMAL  = colors.HexColor('#0d1117')
-HEADER_TEXT = colors.white
-BODY_TEXT   = colors.HexColor('#c9d1d9')
-SUB_TEXT    = colors.HexColor('#8b949e')
-BORDER_CLR  = colors.HexColor('#30363d')
+# ── Colour Palette — Clean Corporate Light Theme ─────────────────────────────
+NAVY        = colors.HexColor('#1a3c6e')
+NAVY_LIGHT  = colors.HexColor('#2c5f9e')
+NAVY_DARK   = colors.HexColor('#0f2847')
+ACCENT      = colors.HexColor('#2563eb')      # Modern blue
+ACCENT_LIGHT = colors.HexColor('#dbeafe')      # Soft blue tint
+
+RED_ALERT   = colors.HexColor('#dc2626')       # Danger red
+RED_BG      = colors.HexColor('#fef2f2')        # Light red background
+RED_BORDER  = colors.HexColor('#fecaca')
+
+AMBER       = colors.HexColor('#d97706')       # Warning amber
+AMBER_BG    = colors.HexColor('#fffbeb')        # Light amber background
+
+GREEN_OK    = colors.HexColor('#16a34a')       # Clean/OK green
+GREEN_BG    = colors.HexColor('#f0fdf4')        # Light green background
+
 WHITE       = colors.white
+PAGE_BG     = colors.white
+ROW_ALT     = colors.HexColor('#f8fafc')       # Very light gray
+ROW_NORMAL  = colors.white
+HEADER_BG   = NAVY                              # Dark navy table headers
+HEADER_TEXT = colors.white
+BODY_TEXT   = colors.HexColor('#1e293b')        # Dark slate for readability
+SUB_TEXT    = colors.HexColor('#64748b')        # Muted text
+BORDER_CLR  = colors.HexColor('#e2e8f0')        # Light border
+SECTION_RULE = colors.HexColor('#cbd5e1')
 
 
 def _styles():
-    """Build a complete set of custom paragraph styles."""
+    """Build a complete set of custom paragraph styles for light theme."""
     s = getSampleStyleSheet()
 
     cover_title = ParagraphStyle(
-        'CoverTitle', fontName='Helvetica-Bold', fontSize=26,
-        textColor=WHITE, spaceAfter=6, alignment=TA_CENTER, leading=32)
+        'CoverTitle', fontName='Helvetica-Bold', fontSize=28,
+        textColor=WHITE, spaceAfter=6, alignment=TA_CENTER, leading=34)
 
     cover_sub = ParagraphStyle(
         'CoverSub', fontName='Helvetica', fontSize=13,
-        textColor=colors.HexColor('#8b949e'), spaceAfter=4, alignment=TA_CENTER)
+        textColor=colors.HexColor('#94a3b8'), spaceAfter=4, alignment=TA_CENTER)
 
     cover_meta = ParagraphStyle(
         'CoverMeta', fontName='Helvetica-Bold', fontSize=11,
-        textColor=BODY_TEXT, spaceAfter=4, alignment=TA_CENTER)
+        textColor=WHITE, spaceAfter=4, alignment=TA_CENTER)
 
     section_heading = ParagraphStyle(
         'SectionHeading', fontName='Helvetica-Bold', fontSize=14,
-        textColor=ACCENT2, spaceBefore=14, spaceAfter=6, leading=18)
+        textColor=NAVY, spaceBefore=14, spaceAfter=6, leading=18)
 
-    normal_dark = ParagraphStyle(
-        'NormalDark', fontName='Helvetica', fontSize=9,
+    normal_text = ParagraphStyle(
+        'NormalText', fontName='Helvetica', fontSize=9,
         textColor=BODY_TEXT, spaceAfter=2, leading=13)
 
-    small_dark = ParagraphStyle(
-        'SmallDark', fontName='Helvetica', fontSize=7.5,
+    small_text = ParagraphStyle(
+        'SmallText', fontName='Helvetica', fontSize=7.5,
         textColor=BODY_TEXT, leading=11)
 
     alert_red = ParagraphStyle(
         'AlertRed', fontName='Helvetica-Bold', fontSize=10,
         textColor=RED_ALERT, spaceAfter=4)
 
+    alert_amber = ParagraphStyle(
+        'AlertAmber', fontName='Helvetica-Bold', fontSize=10,
+        textColor=AMBER, spaceAfter=4)
+
     label = ParagraphStyle(
         'Label', fontName='Helvetica-Bold', fontSize=9,
         textColor=SUB_TEXT, spaceAfter=1)
 
+    # Detections Summary styles
+    stat_big = ParagraphStyle(
+        'StatBig', fontName='Helvetica-Bold', fontSize=22,
+        textColor=NAVY, alignment=TA_CENTER, leading=26)
+
+    stat_label = ParagraphStyle(
+        'StatLabel', fontName='Helvetica', fontSize=8,
+        textColor=SUB_TEXT, alignment=TA_CENTER, spaceAfter=2)
+
+    finding_text = ParagraphStyle(
+        'FindingText', fontName='Helvetica', fontSize=10,
+        textColor=BODY_TEXT, spaceAfter=6, leading=14,
+        leftIndent=12, bulletIndent=0)
+
     return dict(
         cover_title=cover_title, cover_sub=cover_sub, cover_meta=cover_meta,
-        section_heading=section_heading, normal_dark=normal_dark,
-        small_dark=small_dark, alert_red=alert_red, label=label
+        section_heading=section_heading, normal_text=normal_text,
+        small_text=small_text, alert_red=alert_red, alert_amber=alert_amber,
+        label=label, stat_big=stat_big, stat_label=stat_label,
+        finding_text=finding_text
     )
 
 
@@ -78,77 +110,109 @@ def _styles():
 def _on_cover_page(canvas, doc):
     canvas.saveState()
     w, h = A4
-    # Full dark background
-    canvas.setFillColor(DARK_BG)
+    # White background
+    canvas.setFillColor(WHITE)
     canvas.rect(0, 0, w, h, fill=1, stroke=0)
-    # Top accent stripe
+    # Top navy header block (covers top 40% of page)
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, h * 0.55, w, h * 0.45, fill=1, stroke=0)
+    # Accent stripe at the junction
     canvas.setFillColor(ACCENT)
-    canvas.rect(0, h - 8*mm, w, 8*mm, fill=1, stroke=0)
-    # Bottom accent stripe
-    canvas.rect(0, 0, w, 5*mm, fill=1, stroke=0)
-    # Left side bar
-    canvas.setFillColor(SECTION_BG)
-    canvas.rect(0, 5*mm, 6*mm, h - 13*mm, fill=1, stroke=0)
+    canvas.rect(0, h * 0.55 - 3*mm, w, 3*mm, fill=1, stroke=0)
+    # Bottom thin navy bar
+    canvas.setFillColor(NAVY_DARK)
+    canvas.rect(0, 0, w, 8*mm, fill=1, stroke=0)
+    # "CONFIDENTIAL" watermark on the bottom bar
+    canvas.setFont('Helvetica-Bold', 7)
+    canvas.setFillColor(colors.HexColor('#ffffff80'))
+    canvas.drawCentredString(w / 2, 2.5*mm, 'CONFIDENTIAL — AUTHORISED PERSONNEL ONLY')
     canvas.restoreState()
 
 
 def _on_body_page(canvas, doc):
     canvas.saveState()
     w, h = A4
-    canvas.setFillColor(DARK_BG)
+    # White background
+    canvas.setFillColor(WHITE)
     canvas.rect(0, 0, w, h, fill=1, stroke=0)
-    # Header bar
-    canvas.setFillColor(SECTION_BG)
-    canvas.rect(0, h - 14*mm, w, 14*mm, fill=1, stroke=0)
+    # Top header bar — slim navy
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, h - 12*mm, w, 12*mm, fill=1, stroke=0)
+    # Thin accent line below header
     canvas.setFillColor(ACCENT)
-    canvas.rect(0, h - 14*mm, w, 1.5*mm, fill=1, stroke=0)
-    # Footer bar
-    canvas.setFillColor(SECTION_BG)
-    canvas.rect(0, 0, w, 12*mm, fill=1, stroke=0)
-    canvas.setFillColor(ACCENT)
-    canvas.rect(0, 12*mm, w, 0.5*mm, fill=1, stroke=0)
+    canvas.rect(0, h - 12.5*mm, w, 0.5*mm, fill=1, stroke=0)
+    # Footer separator line
+    canvas.setStrokeColor(BORDER_CLR)
+    canvas.setLineWidth(0.5)
+    canvas.line(18*mm, 11*mm, w - 18*mm, 11*mm)
     # Header text
-    canvas.setFont('Helvetica-Bold', 8)
-    canvas.setFillColor(SUB_TEXT)
-    canvas.drawString(18*mm, h - 9*mm, 'DIGITAL FORENSICS INVESTIGATION REPORT')
-    canvas.setFont('Helvetica', 8)
-    canvas.drawRightString(w - 18*mm, h - 9*mm, f'Page {doc.page}')
-    # Footer text
+    canvas.setFont('Helvetica-Bold', 7.5)
+    canvas.setFillColor(WHITE)
+    canvas.drawString(18*mm, h - 8.5*mm, 'FORENSIC INVESTIGATION REPORT')
     canvas.setFont('Helvetica', 7.5)
+    canvas.drawRightString(w - 18*mm, h - 8.5*mm, f'Page {doc.page}')
+    # Footer text
+    canvas.setFont('Helvetica', 7)
     canvas.setFillColor(SUB_TEXT)
-    canvas.drawString(18*mm, 4*mm, 'CONFIDENTIAL — Authorised Personnel Only')
-    canvas.drawRightString(w - 18*mm, 4*mm, f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    canvas.drawString(18*mm, 5*mm, 'CONFIDENTIAL — Authorised Personnel Only')
+    canvas.drawRightString(w - 18*mm, 5*mm,
+                           f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     canvas.restoreState()
 
 
-# ── Table helper ──────────────────────────────────────────────────────────────
-def _make_table(data, col_widths, header_bg=ACCENT, alert_rows=None):
-    """Build a styled dark-theme table. alert_rows is a set of row indices to highlight red."""
+# ── Table helper — Light theme with colour-coded severity ─────────────────────
+def _make_table(data, col_widths, header_bg=None, alert_rows=None,
+                severity='normal'):
+    """
+    Build a styled light-theme table.
+
+    severity controls alert row colouring:
+        'critical' — red background for alert rows
+        'warning'  — amber background for alert rows
+        'normal'   — standard alternating rows (no special highlight)
+
+    alert_rows: set of 1-based row indices to highlight.
+    """
+    if header_bg is None:
+        header_bg = HEADER_BG
     alert_rows = alert_rows or set()
+
     style_cmds = [
         # Header row
-        ('BACKGROUND',  (0, 0), (-1, 0), header_bg),
-        ('TEXTCOLOR',   (0, 0), (-1, 0), WHITE),
-        ('FONTNAME',    (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE',    (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        ('TOPPADDING',  (0, 0), (-1, 0), 6),
+        ('BACKGROUND',    (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR',     (0, 0), (-1, 0), HEADER_TEXT),
+        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+        ('TOPPADDING',    (0, 0), (-1, 0), 7),
         # Body rows
-        ('FONTNAME',    (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE',    (0, 1), (-1, -1), 7.5),
-        ('TEXTCOLOR',   (0, 1), (-1, -1), BODY_TEXT),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('TOPPADDING',  (0, 1), (-1, -1), 4),
+        ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',      (0, 1), (-1, -1), 7.5),
+        ('TEXTCOLOR',     (0, 1), (-1, -1), BODY_TEXT),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+        ('TOPPADDING',    (0, 1), (-1, -1), 5),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_NORMAL, ROW_ALT]),
-        ('GRID',        (0, 0), (-1, -1), 0.4, BORDER_CLR),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID',          (0, 0), (-1, -1), 0.4, BORDER_CLR),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]
+
+    # Colour-code alert rows based on severity
     for row_idx in alert_rows:
-        style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#3d0000')))
-        style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), RED_ALERT))
-        style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
+        if severity == 'critical':
+            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), RED_BG))
+            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), RED_ALERT))
+            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
+        elif severity == 'warning':
+            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), AMBER_BG))
+            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), AMBER))
+            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
+        else:
+            # Default: subtle highlight
+            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), RED_BG))
+            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), RED_ALERT))
+            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
 
     t = Table(data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle(style_cmds))
@@ -157,10 +221,12 @@ def _make_table(data, col_widths, header_bg=ACCENT, alert_rows=None):
 
 def _section_header(title, st, subtitle=None):
     elems = []
-    elems.append(HRFlowable(width='100%', thickness=0.5, color=ACCENT, spaceAfter=4))
+    elems.append(Spacer(1, 2*mm))
+    elems.append(HRFlowable(width='100%', thickness=1, color=NAVY, spaceAfter=4))
     elems.append(Paragraph(title, st['section_heading']))
     if subtitle:
         elems.append(Paragraph(subtitle, st['label']))
+    elems.append(Spacer(1, 2*mm))
     return elems
 
 
@@ -169,10 +235,137 @@ def _truncate(text, maxlen=80):
     return text[:maxlen] + '…' if len(text) > maxlen else text
 
 
+def _severity_badge(level):
+    """Return a coloured text string based on severity level."""
+    level_upper = str(level).upper()
+    if level_upper in ('CRITICAL', 'HIGH'):
+        return f'🔴 {level_upper}'
+    elif level_upper in ('MEDIUM',):
+        return f'🟡 {level_upper}'
+    elif level_upper in ('LOW', 'INFO'):
+        return f'🟢 {level_upper}'
+    return level_upper
+
+
+# ── Detections Summary Builder ────────────────────────────────────────────────
+def _build_detections_summary(st, counts, yara_rows, sigma_rows, vt_rows,
+                              startup_rows):
+    """Build the executive Detections Summary page elements."""
+    elements = []
+
+    elements.append(Spacer(1, 5*mm))
+    elements.append(HRFlowable(width='100%', thickness=2, color=NAVY, spaceAfter=6))
+    elements.append(Paragraph('DETECTIONS SUMMARY', st['section_heading']))
+    elements.append(Paragraph('Executive overview of key findings from this investigation',
+                              st['label']))
+    elements.append(Spacer(1, 6*mm))
+
+    # ── Stats Grid ──
+    total_artifacts = sum(counts.values()) if counts else 0
+    categories = len([v for v in counts.values() if v > 0]) if counts else 0
+
+    stats_data = [[
+        Paragraph(str(total_artifacts), st['stat_big']),
+        Paragraph(str(categories), st['stat_big']),
+        Paragraph(str(len(yara_rows)), st['stat_big']),
+        Paragraph(str(len(sigma_rows)), st['stat_big']),
+    ], [
+        Paragraph('Evidence Items', st['stat_label']),
+        Paragraph('Categories', st['stat_label']),
+        Paragraph('YARA Hits', st['stat_label']),
+        Paragraph('Sigma Alerts', st['stat_label']),
+    ]]
+    stats_table = Table(stats_data, colWidths=[4.25*cm]*4)
+    stats_style = [
+        ('ALIGN',       (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',  (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
+        ('TOPPADDING',  (0, 1), (-1, 1), 0),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 10),
+        ('GRID',        (0, 0), (-1, -1), 0.5, BORDER_CLR),
+        ('BACKGROUND',  (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+    ]
+    # Colour the YARA and Sigma stat cells based on findings
+    if len(yara_rows) > 0:
+        stats_style.append(('BACKGROUND', (2, 0), (2, -1), RED_BG))
+    if len(sigma_rows) > 0:
+        stats_style.append(('BACKGROUND', (3, 0), (3, -1), AMBER_BG))
+
+    stats_table.setStyle(TableStyle(stats_style))
+    elements.append(stats_table)
+    elements.append(Spacer(1, 8*mm))
+
+    # ── Threat Assessment ──
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=SECTION_RULE,
+                               spaceAfter=4))
+    elements.append(Paragraph('Threat Assessment', ParagraphStyle(
+        'ThreatTitle', fontName='Helvetica-Bold', fontSize=12,
+        textColor=NAVY, spaceAfter=6)))
+
+    findings = []
+
+    # YARA findings
+    if yara_rows:
+        for row in yara_rows:
+            raw = json.loads(row.get('raw_data', '{}'))
+            sev = raw.get('severity', 'MEDIUM').upper()
+            badge = _severity_badge(sev)
+            findings.append(
+                f"{badge} — YARA rule <b>{_truncate(raw.get('rule', '?'), 40)}</b> "
+                f"matched in <b>{_truncate(os.path.basename(raw.get('filepath', '?')), 30)}</b>"
+            )
+    else:
+        findings.append("🟢 No YARA malware signatures detected in startup executables.")
+
+    # Sigma findings
+    if sigma_rows:
+        for row in sigma_rows:
+            raw = json.loads(row.get('raw_data', '{}'))
+            level = raw.get('rule_level', 'medium').upper()
+            badge = _severity_badge(level)
+            findings.append(
+                f"{badge} — Sigma alert: <b>{_truncate(raw.get('rule_title', '?'), 50)}</b>"
+            )
+    else:
+        findings.append("🟢 No Sigma behavioral detections triggered.")
+
+    # VirusTotal findings
+    if vt_rows:
+        malicious_vt = [r for r in vt_rows
+                        if json.loads(r.get('raw_data', '{}')).get('is_malicious')]
+        if malicious_vt:
+            for row in malicious_vt:
+                raw = json.loads(row.get('raw_data', '{}'))
+                findings.append(
+                    f"🔴 MALICIOUS — VirusTotal flagged <b>"
+                    f"{_truncate(raw.get('label', '?'), 30)}</b> "
+                    f"({raw.get('detection_ratio', '?')})"
+                )
+        else:
+            findings.append(
+                f"🟢 VirusTotal: All {len(vt_rows)} checked hashes are clean.")
+
+    # Suspicious startup
+    sus_count = sum(1 for r in startup_rows
+                    if json.loads(r.get('raw_data', '{}')).get('flagged_suspicious'))
+    if sus_count:
+        findings.append(f"🟡 MEDIUM — {sus_count} suspicious startup program(s) detected.")
+
+    for f in findings:
+        elements.append(Paragraph(f'• {f}', st['finding_text']))
+
+    elements.append(Spacer(1, 6*mm))
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=SECTION_RULE,
+                               spaceAfter=4))
+
+    return elements
+
+
 # ── Main report function ──────────────────────────────────────────────────────
 def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
     """
-    Generate a professional multi-section forensic investigation PDF report.
+    Generate a professional light-themed forensic investigation PDF report.
 
     Args:
         case_info:    dict with case_id, case_name, investigator_name, target_system
@@ -194,6 +387,11 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
     usb_rows = []
     recent_rows = []
     prefetch_rows = []
+    usn_rows = []
+    shimcache_rows = []
+    sigma_rows = []
+    vt_rows = []
+    vss_rows = []
 
     if db_manager:
         counts = db_manager.get_artifact_counts(case_id)
@@ -231,8 +429,8 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
 
     # ── COVER PAGE ────────────────────────────────────────────────────────────
     elements.append(Spacer(1, 3*cm))
-    elements.append(Paragraph('DIGITAL FORENSICS', st['cover_title']))
-    elements.append(Paragraph('INVESTIGATION REPORT', st['cover_title']))
+    elements.append(Paragraph('FORENSIC INVESTIGATION', st['cover_title']))
+    elements.append(Paragraph('REPORT', st['cover_title']))
     elements.append(Spacer(1, 0.5*cm))
     elements.append(HRFlowable(width='80%', thickness=2, color=ACCENT, spaceAfter=16))
     elements.append(Spacer(1, 0.5*cm))
@@ -245,45 +443,58 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         ('Platform',      f"{platform.system()} {platform.release()}"),
         ('Generated',     now_str),
     ]
-    for label, value in meta:
-        elements.append(Paragraph(f'<font color="#8b949e">{label}:</font>  '
-                                  f'<font color="#c9d1d9"><b>{value}</b></font>',
-                                  st['cover_meta']))
+    meta_data = [[Paragraph(f'<b>{k}</b>', st['cover_meta']),
+                  Paragraph(v, st['cover_meta'])] for k, v in meta]
+    meta_table = Table(meta_data, colWidths=[4*cm, 9*cm])
+    meta_table.setStyle(TableStyle([
+        ('TEXTCOLOR',   (0, 0), (-1, -1), WHITE),
+        ('FONTSIZE',    (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING',  (0, 0), (-1, -1), 6),
+        ('LINEBELOW',   (0, 0), (-1, -2), 0.5, colors.HexColor('#ffffff30')),
+        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',       (0, 0), (0, -1), 'RIGHT'),
+        ('RIGHTPADDING', (0, 0), (0, -1), 12),
+    ]))
+    elements.append(meta_table)
 
-    elements.append(Spacer(1, 1.5*cm))
-    elements.append(HRFlowable(width='80%', thickness=0.5, color=BORDER_CLR, spaceAfter=10))
-    elements.append(Paragraph(
-        '⚠  CONFIDENTIAL — FOR AUTHORISED PERSONNEL ONLY',
-        ParagraphStyle('conf', fontName='Helvetica-Bold', fontSize=9,
-                       textColor=AMBER, alignment=TA_CENTER)))
-
+    # Transition to body pages
     elements.append(NextPageTemplate('Body'))
     elements.append(PageBreak())
 
-    # ── EXECUTIVE SUMMARY ─────────────────────────────────────────────────────
-    elements += _section_header('Executive Summary', st)
-    elements.append(Spacer(1, 3*mm))
+    # ── DETECTIONS SUMMARY (Executive Page) ───────────────────────────────────
+    elements += _build_detections_summary(
+        st, counts, yara_rows, sigma_rows, vt_rows, startup_rows)
 
-    yara_count   = len(yara_rows)
-    total_arts   = sum(counts.values()) if counts else len(timeline_data)
-    proc_count   = counts.get('process', 0)
-    browser_count= counts.get('browser_history', 0)
-    startup_count= counts.get('startup_entry', 0)
-    usb_count    = counts.get('usb_device', 0)
+    # ── Evidence breakdown table ──
+    elements.append(Paragraph('Evidence Breakdown', ParagraphStyle(
+        'BreakdownTitle', fontName='Helvetica-Bold', fontSize=11,
+        textColor=NAVY, spaceAfter=4)))
 
-    summary_data = [
-        ['Metric', 'Value', 'Status'],
-        ['Total Artifacts Collected', str(total_arts),        'OK'],
-        ['Running Processes',         str(proc_count),        'OK'],
-        ['Startup Entries',           str(startup_count),     'OK'],
-        ['Browser History Entries',   str(browser_count),     'OK'],
-        ['USB Devices Detected',      str(usb_count),         'OK'],
-        ['YARA Malware Hits',         str(yara_count),
-         '⚠  THREAT DETECTED' if yara_count > 0 else 'CLEAN'],
+    summary_data = [['Artifact Type', 'Count', 'Source Module']]
+    type_map = [
+        ('Processes',       counts.get('process', 0),         'psutil'),
+        ('Recent Files',    counts.get('recent_file', 0),     'Registry'),
+        ('Startup Programs', counts.get('startup_entry', 0),  'Registry + Folders'),
+        ('USB Devices',     counts.get('usb_device', 0),      'Registry'),
+        ('Browser History', counts.get('browser_history', 0), 'Chrome / Edge / Firefox'),
+        ('Event Logs',      counts.get('event_log', 0),       'EVTX Parser'),
+        ('Prefetch',        counts.get('prefetch', 0),        'Prefetch Parser'),
+        ('ShimCache',       counts.get('shimcache', 0),       'Registry (SYSTEM)'),
+        ('USN Journal',     counts.get('usn_journal', 0),     'NTFS Raw I/O'),
+        ('YARA Hits',       counts.get('yara_match', 0),      'YARA Scanner'),
+        ('Sigma Alerts',    counts.get('sigma_alert', 0),     'Sigma Engine'),
+        ('VirusTotal',      counts.get('virustotal', 0),      'VirusTotal API'),
+        ('Shadow Copies',   counts.get('vss', 0),             'VSS Extractor'),
     ]
-    alert_rows_set = {6} if yara_count > 0 else set()
-    elements.append(_make_table(summary_data, [8*cm, 4*cm, 5*cm],
-                                alert_rows=alert_rows_set))
+    alert_rows_set = set()
+    for i, (label, count, source) in enumerate(type_map, 1):
+        summary_data.append([label, str(count), source])
+        if label in ('YARA Hits', 'Sigma Alerts') and count > 0:
+            alert_rows_set.add(i)
+
+    elements.append(_make_table(summary_data, [6*cm, 3*cm, 8*cm],
+                                alert_rows=alert_rows_set, severity='critical'))
     elements.append(Spacer(1, 5*mm))
 
     # ── YARA MALWARE HITS ─────────────────────────────────────────────────────
@@ -296,14 +507,15 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
             raw = json.loads(row.get('raw_data', '{}'))
             yara_table_data.append([
                 _truncate(raw.get('rule', '—'), 30),
-                raw.get('severity', '—'),
+                _severity_badge(raw.get('severity', '—')),
                 _truncate(os.path.basename(raw.get('filepath', '—')), 30),
                 _truncate(raw.get('description', '—'), 50),
             ])
         elements.append(_make_table(
             yara_table_data, [4*cm, 2.5*cm, 4*cm, 6.5*cm],
             header_bg=RED_ALERT,
-            alert_rows=set(range(1, len(yara_table_data)))
+            alert_rows=set(range(1, len(yara_table_data))),
+            severity='critical'
         ))
         elements.append(Spacer(1, 4*mm))
 
@@ -325,7 +537,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
                 '⚠  YES' if is_sus else 'No',
             ])
         elements.append(_make_table(su_data, [3.5*cm, 7*cm, 3.5*cm, 3*cm],
-                                    alert_rows=alert_su))
+                                    alert_rows=alert_su, severity='warning'))
         elements.append(Spacer(1, 4*mm))
 
     # ── PROCESSES ─────────────────────────────────────────────────────────────
@@ -452,7 +664,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
             raw = json.loads(row.get('raw_data', '{}'))
             sig_data.append([
                 _truncate(raw.get('rule_title', '—'), 35),
-                raw.get('rule_level', '—').upper(),
+                _severity_badge(raw.get('rule_level', '—')),
                 str(raw.get('matched_event', {}).get('event_id', '—')),
                 _truncate(raw.get('matched_event', {}).get('timestamp', '—'), 22),
                 _truncate(raw.get('sigma_file', '—'), 25),
@@ -460,11 +672,12 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         elements.append(_make_table(
             sig_data, [5*cm, 2*cm, 2*cm, 4*cm, 4*cm],
             header_bg=AMBER,
-            alert_rows=set(range(1, len(sig_data)))
+            alert_rows=set(range(1, len(sig_data))),
+            severity='warning'
         ))
         elements.append(Spacer(1, 4*mm))
 
-    # ── VIRUSTOTAL ─────────────────────────────────────────────────────────────
+    # ── VIRUSTOTAL ────────────────────────────────────────────────────────────
     if vt_rows:
         elements += _section_header('VirusTotal — Hash Reputation', st,
                                     subtitle='File hash lookups against 70+ antivirus engines')
@@ -478,11 +691,11 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
                 _truncate(raw.get('label', raw.get('meaningful_name', '—')), 30),
                 raw.get('detection_ratio', '—'),
                 _truncate(raw.get('threat_label', '—'), 30),
-                '⚠  MALICIOUS' if raw.get('is_malicious') else raw.get('status', '—'),
+                '🔴 MALICIOUS' if raw.get('is_malicious') else '🟢 Clean',
             ])
         elements.append(_make_table(
             vt_data, [5*cm, 3*cm, 5*cm, 4*cm],
-            alert_rows=vt_alert_rows
+            alert_rows=vt_alert_rows, severity='critical'
         ))
         elements.append(Spacer(1, 4*mm))
 
@@ -494,7 +707,8 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         for row in vss_rows:
             raw = json.loads(row.get('raw_data', '{}'))
             artifacts = raw.get('artifacts_found', [])
-            artifact_names = ', '.join([a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
+            artifact_names = ', '.join(
+                [a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
             vss_data.append([
                 _truncate(raw.get('shadow_id', '—'), 40),
                 _truncate(raw.get('creation_time', '—'), 25),
@@ -503,7 +717,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         elements.append(_make_table(vss_data, [6*cm, 4.5*cm, 6.5*cm]))
         elements.append(Spacer(1, 4*mm))
 
-    # ── TIMELINE ───────────────────────────────────────────────────────────────
+    # ── TIMELINE ──────────────────────────────────────────────────────────────
     if timeline_data:
         elements += _section_header('Chronological Event Timeline', st,
                                     subtitle=f'{len(timeline_data)} timestamped events ordered chronologically')
