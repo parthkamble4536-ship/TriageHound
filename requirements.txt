@@ -1,0 +1,7 @@
+psutil
+pywin32
+python-evtx
+pandas
+reportlab
+pillow
+yara-python
