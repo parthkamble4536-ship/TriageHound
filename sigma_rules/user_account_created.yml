@@ -1,0 +1,11 @@
+title: User Account Created
+description: Detects creation of a new local user account — may indicate an attacker creating a backdoor account for persistent access.
+status: stable
+level: high
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4720
+    condition: selection

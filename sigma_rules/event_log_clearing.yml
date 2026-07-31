@@ -1,0 +1,11 @@
+title: Security Event Log Cleared
+description: Detects when the Windows Security Event Log is cleared — a strong indicator of an attacker covering their tracks.
+status: stable
+level: critical
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 1102
+    condition: selection

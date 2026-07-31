@@ -1,0 +1,12 @@
+title: RDP Login Detected
+description: Detects Remote Desktop Protocol (RDP) logins (Logon Type 10) — may indicate lateral movement by an attacker within the network.
+status: stable
+level: medium
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4624
+        LogonType: 10
+    condition: selection

@@ -1,0 +1,11 @@
+title: Scheduled Task Created
+description: Detects creation of a new scheduled task — a common persistence mechanism used by threat actors to survive reboots.
+status: stable
+level: high
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4698
+    condition: selection

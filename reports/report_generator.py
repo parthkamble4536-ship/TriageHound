@@ -204,6 +204,11 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         usb_rows     = db_manager.get_evidence_by_type(case_id, 'usb_device')
         recent_rows  = db_manager.get_evidence_by_type(case_id, 'recent_file')
         prefetch_rows = db_manager.get_evidence_by_type(case_id, 'prefetch')
+        usn_rows      = db_manager.get_evidence_by_type(case_id, 'usn_journal')
+        shimcache_rows = db_manager.get_evidence_by_type(case_id, 'shimcache')
+        sigma_rows    = db_manager.get_evidence_by_type(case_id, 'sigma_alert')
+        vt_rows       = db_manager.get_evidence_by_type(case_id, 'virustotal')
+        vss_rows      = db_manager.get_evidence_by_type(case_id, 'vss')
 
     # ── Document setup ────────────────────────────────────────────────────────
     doc = BaseDocTemplate(
@@ -405,7 +410,100 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         elements.append(_make_table(pf_data, [6*cm, 2.5*cm, 4*cm, 4.5*cm]))
         elements.append(Spacer(1, 4*mm))
 
-    # ── TIMELINE ─────────────────────────────────────────────────────────────
+    # ── SHIMCACHE ─────────────────────────────────────────────────────────────
+    if shimcache_rows:
+        display_sc = shimcache_rows[:100]
+        elements += _section_header('ShimCache — Application Compatibility Cache', st,
+                                    subtitle=f'{len(display_sc)} of {len(shimcache_rows)} cached executable entries')
+        sc_data = [['#', 'Executable Path', 'Last Modified']]
+        for row in display_sc:
+            raw = json.loads(row.get('raw_data', '{}'))
+            sc_data.append([
+                str(raw.get('cache_position', '—')),
+                _truncate(raw.get('executable_path', '—'), 65),
+                _truncate(raw.get('last_modified', '—'), 22),
+            ])
+        elements.append(_make_table(sc_data, [1.5*cm, 11.5*cm, 4*cm]))
+        elements.append(Spacer(1, 4*mm))
+
+    # ── USN JOURNAL ───────────────────────────────────────────────────────────
+    if usn_rows:
+        display_usn = usn_rows[:200]
+        elements += _section_header('USN Journal — File System Changes', st,
+                                    subtitle=f'Last {len(display_usn)} of {len(usn_rows)} NTFS change log entries')
+        usn_data = [['Timestamp', 'Filename', 'Reason', 'Dir']]
+        for row in display_usn:
+            raw = json.loads(row.get('raw_data', '{}'))
+            usn_data.append([
+                _truncate(raw.get('timestamp', '—'), 22),
+                _truncate(raw.get('filename', '—'), 35),
+                _truncate(raw.get('reason_summary', '—'), 35),
+                'Yes' if raw.get('is_directory') else 'No',
+            ])
+        elements.append(_make_table(usn_data, [4*cm, 5*cm, 6*cm, 2*cm]))
+        elements.append(Spacer(1, 4*mm))
+
+    # ── SIGMA ALERTS ──────────────────────────────────────────────────────────
+    if sigma_rows:
+        elements += _section_header('⚠  Sigma Alerts — Behavioral Detections', st,
+                                    subtitle=f'{len(sigma_rows)} suspicious behaviors detected in event logs')
+        sig_data = [['Rule', 'Level', 'Event ID', 'Timestamp', 'Rule File']]
+        for row in sigma_rows:
+            raw = json.loads(row.get('raw_data', '{}'))
+            sig_data.append([
+                _truncate(raw.get('rule_title', '—'), 35),
+                raw.get('rule_level', '—').upper(),
+                str(raw.get('matched_event', {}).get('event_id', '—')),
+                _truncate(raw.get('matched_event', {}).get('timestamp', '—'), 22),
+                _truncate(raw.get('sigma_file', '—'), 25),
+            ])
+        elements.append(_make_table(
+            sig_data, [5*cm, 2*cm, 2*cm, 4*cm, 4*cm],
+            header_bg=AMBER,
+            alert_rows=set(range(1, len(sig_data)))
+        ))
+        elements.append(Spacer(1, 4*mm))
+
+    # ── VIRUSTOTAL ─────────────────────────────────────────────────────────────
+    if vt_rows:
+        elements += _section_header('VirusTotal — Hash Reputation', st,
+                                    subtitle='File hash lookups against 70+ antivirus engines')
+        vt_data = [['File', 'Detection Ratio', 'Threat Label', 'Status']]
+        vt_alert_rows = set()
+        for i, row in enumerate(vt_rows, 1):
+            raw = json.loads(row.get('raw_data', '{}'))
+            if raw.get('is_malicious'):
+                vt_alert_rows.add(i)
+            vt_data.append([
+                _truncate(raw.get('label', raw.get('meaningful_name', '—')), 30),
+                raw.get('detection_ratio', '—'),
+                _truncate(raw.get('threat_label', '—'), 30),
+                '⚠  MALICIOUS' if raw.get('is_malicious') else raw.get('status', '—'),
+            ])
+        elements.append(_make_table(
+            vt_data, [5*cm, 3*cm, 5*cm, 4*cm],
+            alert_rows=vt_alert_rows
+        ))
+        elements.append(Spacer(1, 4*mm))
+
+    # ── VSS ───────────────────────────────────────────────────────────────────
+    if vss_rows:
+        elements += _section_header('Volume Shadow Copies', st,
+                                    subtitle='Recovered forensic artifacts from system shadow copies')
+        vss_data = [['Shadow Copy', 'Creation Time', 'Artifacts Found']]
+        for row in vss_rows:
+            raw = json.loads(row.get('raw_data', '{}'))
+            artifacts = raw.get('artifacts_found', [])
+            artifact_names = ', '.join([a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
+            vss_data.append([
+                _truncate(raw.get('shadow_id', '—'), 40),
+                _truncate(raw.get('creation_time', '—'), 25),
+                _truncate(artifact_names, 40),
+            ])
+        elements.append(_make_table(vss_data, [6*cm, 4.5*cm, 6.5*cm]))
+        elements.append(Spacer(1, 4*mm))
+
+    # ── TIMELINE ───────────────────────────────────────────────────────────────
     if timeline_data:
         elements += _section_header('Chronological Event Timeline', st,
                                     subtitle=f'{len(timeline_data)} timestamped events ordered chronologically')

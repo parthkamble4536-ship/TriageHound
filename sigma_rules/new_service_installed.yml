@@ -1,0 +1,11 @@
+title: New Service Installed
+description: Detects installation of a new Windows service — commonly used by attackers to establish persistence or execute payloads.
+status: stable
+level: high
+logsource:
+    product: windows
+    service: system
+detection:
+    selection:
+        EventID: 7045
+    condition: selection

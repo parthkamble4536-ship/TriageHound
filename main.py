@@ -12,6 +12,11 @@ from modules.usb_analysis import collect_usb_history
 from modules.browser_analysis import collect_browser_history
 from modules.event_logs import parse_evtx
 from modules.prefetch_parser import collect_prefetch
+from modules.usn_parser import collect_usn_journal
+from modules.shimcache_parser import collect_shimcache
+from modules.sigma_engine import load_sigma_rules, match_events
+from modules.virustotal import batch_check as vt_batch_check
+from modules.vss_extractor import collect_vss_info
 from modules.timeline import generate_timeline
 from modules.yara_scanner import compile_rules, scan_file
 from modules.report_sealer import seal_report
@@ -33,6 +38,12 @@ def main():
     parser.add_argument('--yara-scan', action='store_true', help="Enable YARA malware scanning on startup entries")
     parser.add_argument('--rules-dir', type=str, default='rules', help="Directory containing .yar YARA rule files")
     parser.add_argument('--prefetch', action='store_true', help="Parse Windows Prefetch files (requires Admin)")
+    parser.add_argument('--usn-journal', action='store_true', help="Parse NTFS USN Journal (requires Admin)")
+    parser.add_argument('--shimcache', action='store_true', help="Parse ShimCache execution evidence")
+    parser.add_argument('--sigma-scan', action='store_true', help="Run Sigma rules against parsed event logs")
+    parser.add_argument('--sigma-dir', type=str, default='sigma_rules', help="Directory containing .yml Sigma rules")
+    parser.add_argument('--vt-api-key', type=str, default=None, help="VirusTotal API key for hash lookups")
+    parser.add_argument('--vss', action='store_true', help="Scan Volume Shadow Copies (requires Admin)")
 
     args = parser.parse_args()
 
@@ -159,13 +170,54 @@ def main():
     else:
         print("  -> Skipping Prefetch parsing (use --prefetch to enable).")
 
+    # -- USN Journal Parsing --------------------------------------
+    if args.usn_journal:
+        print("  -> Parsing NTFS USN Journal (requires Admin)...")
+        usn_entries = collect_usn_journal()
+        for entry in usn_entries:
+            db.insert_evidence(
+                'usn_journal', 'USN Journal',
+                f"USN: {entry['filename']} [{entry['reason_summary']}]",
+                entry['timestamp'], entry, args.case
+            )
+        print(f"     Found {len(usn_entries)} USN journal entries.")
+    else:
+        print("  -> Skipping USN Journal (use --usn-journal to enable).")
+
+    # -- ShimCache Parsing ----------------------------------------
+    if args.shimcache:
+        print("  -> Parsing ShimCache (AppCompatCache)...")
+        shim_entries = collect_shimcache()
+        for entry in shim_entries:
+            db.insert_evidence(
+                'shimcache', 'ShimCache',
+                f"ShimCache: {os.path.basename(entry['executable_path'])} (modified: {entry['last_modified']})",
+                entry['last_modified'], entry, args.case
+            )
+        print(f"     Found {len(shim_entries)} ShimCache entries.")
+    else:
+        print("  -> Skipping ShimCache (use --shimcache to enable).")
+
+    # -- VSS Extraction -------------------------------------------
+    if args.vss:
+        print("  -> Scanning Volume Shadow Copies (requires Admin)...")
+        vss_results = collect_vss_info()
+        for vss in vss_results:
+            db.insert_evidence(
+                'vss', 'VSS Extractor',
+                f"Shadow Copy: {vss['creation_time']} ({len(vss['artifacts_found'])} artifacts)",
+                vss['creation_time'], vss, args.case
+            )
+        print(f"     Found {len(vss_results)} shadow copies.")
+    else:
+        print("  -> Skipping VSS (use --vss to enable).")
+
     # -- YARA Malware Scan ----------------------------------------
     if args.yara_scan:
         print()
         print("[*] YARA Malware Scan...")
         compiled = compile_rules(args.rules_dir)
         if compiled:
-            # Collect file paths from startup entries to scan
             scan_targets = [se['command'] for se in startup_entries if os.path.isfile(se.get('command', ''))]
             print(f"    Scanning {len(scan_targets)} startup executables against YARA rules...")
             yara_hits = 0
@@ -188,6 +240,60 @@ def main():
             print(f"    [!] No YARA rules found in: {args.rules_dir}")
     else:
         print("  -> Skipping YARA scan (use --yara-scan to enable).")
+
+    # -- Sigma Rules Scan -----------------------------------------
+    if args.sigma_scan and args.evtx:
+        print()
+        print("[*] Sigma Rules Scan...")
+        sigma_rules = load_sigma_rules(args.sigma_dir)
+        if sigma_rules:
+            all_events = parse_evtx(args.evtx, extract_all=True)
+            sigma_alerts = match_events(sigma_rules, all_events)
+            for alert in sigma_alerts:
+                db.insert_evidence(
+                    'sigma_alert', 'Sigma Engine',
+                    f"Sigma Alert: {alert['rule_title']} [{alert['rule_level'].upper()}]",
+                    alert['matched_event'].get('timestamp'), alert, args.case
+                )
+                print(f"    [!!] SIGMA: {alert['rule_title']} [{alert['rule_level'].upper()}]")
+            if not sigma_alerts:
+                print("    No Sigma rule matches found.")
+            else:
+                print(f"    [!!] {len(sigma_alerts)} Sigma alert(s) triggered!")
+        else:
+            print(f"    [!] No Sigma rules found in: {args.sigma_dir}")
+    elif args.sigma_scan:
+        print("  -> Sigma scan requires --evtx to be specified.")
+
+    # -- VirusTotal Lookups ---------------------------------------
+    if args.vt_api_key:
+        print()
+        print("[*] VirusTotal Hash Lookups...")
+        # Build hash list from startup entries
+        from modules.hashing import hash_file as compute_hash
+        vt_targets = []
+        for se in startup_entries:
+            cmd = se.get('command', '')
+            if os.path.isfile(cmd):
+                result = compute_hash(cmd)
+                vt_targets.append((os.path.basename(cmd), result['sha256']))
+        print(f"    Checking {len(vt_targets)} hashes (rate limited to 4/min)...")
+        def vt_callback(label, result):
+            if result.get('is_malicious'):
+                print(f"    [!!] MALICIOUS: {label} — {result['detection_ratio']} ({result['threat_label']})")
+            elif result.get('status') == 'found':
+                print(f"    [OK] {label} — {result['detection_ratio']} detections")
+            else:
+                print(f"    [--] {label} — {result.get('status', 'unknown')}")
+        vt_results = vt_batch_check(vt_targets, args.vt_api_key, callback=vt_callback)
+        for label, result in vt_results:
+            db.insert_evidence(
+                'virustotal', 'VirusTotal API',
+                f"VT: {label} — {result['detection_ratio']} ({result.get('threat_label', 'N/A')})",
+                None, result, args.case
+            )
+    else:
+        print("  -> Skipping VirusTotal (use --vt-api-key to enable).")
 
 
     # ── Generate Timeline ─────────────────────────────────────

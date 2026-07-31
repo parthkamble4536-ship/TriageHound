@@ -5,3 +5,4 @@ pandas
 reportlab
 pillow
 yara-python
+pyyaml

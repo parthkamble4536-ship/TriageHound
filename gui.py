@@ -14,6 +14,11 @@ from modules.usb_analysis import collect_usb_history
 from modules.browser_analysis import collect_browser_history
 from modules.event_logs import parse_evtx
 from modules.prefetch_parser import collect_prefetch
+from modules.usn_parser import collect_usn_journal
+from modules.shimcache_parser import collect_shimcache
+from modules.sigma_engine import load_sigma_rules, match_events
+from modules.virustotal import batch_check as vt_batch_check
+from modules.vss_extractor import collect_vss_info
 from modules.timeline import generate_timeline
 from modules.yara_scanner import compile_rules, scan_file
 from modules.report_sealer import seal_report
@@ -153,6 +158,49 @@ class ForensicToolkitGUI:
         ttk.Checkbutton(prefetch_row, text="Prefetch Files (Admin required)",
                         variable=self.mod_prefetch).pack(side=tk.LEFT)
         ttk.Label(prefetch_row, text="(parses C:\\Windows\\Prefetch for execution evidence)",
+                  style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+
+        usn_row = ttk.Frame(modules_frame)
+        usn_row.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.mod_usn = tk.BooleanVar(value=False)
+        ttk.Checkbutton(usn_row, text="USN Journal (Admin required)",
+                        variable=self.mod_usn).pack(side=tk.LEFT)
+        ttk.Label(usn_row, text="(NTFS file system change log — defeats anti-forensics)",
+                  style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+
+        shim_row = ttk.Frame(modules_frame)
+        shim_row.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.mod_shimcache = tk.BooleanVar(value=False)
+        ttk.Checkbutton(shim_row, text="ShimCache (Execution Evidence)",
+                        variable=self.mod_shimcache).pack(side=tk.LEFT)
+        ttk.Label(shim_row, text="(AppCompatCache — independent proof of program execution)",
+                  style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+
+        sigma_row = ttk.Frame(modules_frame)
+        sigma_row.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.mod_sigma = tk.BooleanVar(value=False)
+        ttk.Checkbutton(sigma_row, text="Sigma Rules Scan",
+                        variable=self.mod_sigma).pack(side=tk.LEFT)
+        ttk.Label(sigma_row, text="(behavioral detections on Event Logs — requires .evtx)",
+                  style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+
+        vt_row = ttk.Frame(modules_frame)
+        vt_row.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.mod_vt = tk.BooleanVar(value=False)
+        self.vt_api_key_var = tk.StringVar()
+        ttk.Checkbutton(vt_row, text="VirusTotal Lookup",
+                        variable=self.mod_vt).pack(side=tk.LEFT)
+        ttk.Label(vt_row, text="API Key:",
+                  style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Entry(vt_row, textvariable=self.vt_api_key_var, width=35,
+                  show="*").pack(side=tk.LEFT, padx=(5, 0))
+
+        vss_row = ttk.Frame(modules_frame)
+        vss_row.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.mod_vss = tk.BooleanVar(value=False)
+        ttk.Checkbutton(vss_row, text="Shadow Copy Recovery (Admin required)",
+                        variable=self.mod_vss).pack(side=tk.LEFT)
+        ttk.Label(vss_row, text="(recover deleted evidence from Volume Shadow Copies)",
                   style="Sub.TLabel").pack(side=tk.LEFT, padx=(8, 0))
 
         # ── Export Options ──
@@ -396,6 +444,101 @@ class ForensicToolkitGUI:
                     self._log(f"    ✓ {len(pf_entries)} prefetch entries found.", "info")
                 else:
                     self._log("    ⚠ No prefetch entries found. Try running as Administrator.", "warn")
+
+            # USN Journal
+            if self.mod_usn.get():
+                self._log("")
+                self._log("[*] Parsing USN Journal...", "header")
+                usn_entries = collect_usn_journal()
+                if usn_entries:
+                    for entry in usn_entries:
+                        db.insert_evidence('usn_journal', 'USN Journal',
+                                           f"USN: {entry['filename']} [{entry['reason_summary']}]",
+                                           entry['timestamp'], entry, case_id)
+                    self._log(f"    ✓ {len(usn_entries)} USN journal entries collected.", "info")
+                else:
+                    self._log("    ⚠ No USN entries found. Try running as Administrator.", "warn")
+
+            # ShimCache
+            if self.mod_shimcache.get():
+                self._log("")
+                self._log("[*] Parsing ShimCache...", "header")
+                shim_entries = collect_shimcache()
+                if shim_entries:
+                    for entry in shim_entries:
+                        db.insert_evidence('shimcache', 'ShimCache',
+                                           f"ShimCache: {os.path.basename(entry['executable_path'])} (modified: {entry['last_modified']})",
+                                           entry['last_modified'], entry, case_id)
+                    self._log(f"    ✓ {len(shim_entries)} ShimCache entries found.", "info")
+                else:
+                    self._log("    ⚠ No ShimCache entries found.", "warn")
+
+            # Sigma Rules Scan
+            if self.mod_sigma.get():
+                self._log("")
+                self._log("[*] Sigma Rules Scan...", "header")
+                evtx_path = self.evtx_path_var.get().strip()
+                if evtx_path and os.path.exists(evtx_path):
+                    sigma_rules = load_sigma_rules('sigma_rules')
+                    if sigma_rules:
+                        all_events = parse_evtx(evtx_path, extract_all=True)
+                        sigma_alerts = match_events(sigma_rules, all_events)
+                        for alert in sigma_alerts:
+                            db.insert_evidence('sigma_alert', 'Sigma Engine',
+                                               f"Sigma Alert: {alert['rule_title']} [{alert['rule_level'].upper()}]",
+                                               alert['matched_event'].get('timestamp'), alert, case_id)
+                            self._log(f"    [!!] SIGMA: {alert['rule_title']} [{alert['rule_level'].upper()}]", "error")
+                        if not sigma_alerts:
+                            self._log("    ✓ No Sigma rule matches found.", "info")
+                        else:
+                            self._log(f"    [!!] {len(sigma_alerts)} Sigma alert(s) triggered!", "error")
+                    else:
+                        self._log("    ⚠ No Sigma rules found in sigma_rules/ directory.", "warn")
+                else:
+                    self._log("    ⚠ Sigma scan requires an Event Log (.evtx) file.", "warn")
+
+            # VirusTotal Lookups
+            if self.mod_vt.get():
+                self._log("")
+                self._log("[*] VirusTotal Hash Lookups...", "header")
+                api_key = self.vt_api_key_var.get().strip()
+                if api_key:
+                    from modules.hashing import hash_file as compute_hash
+                    vt_targets = []
+                    for se in entries:
+                        cmd = se.get('command', '')
+                        if os.path.isfile(cmd):
+                            result = compute_hash(cmd)
+                            vt_targets.append((os.path.basename(cmd), result['sha256']))
+                    self._log(f"    Checking {len(vt_targets)} hashes (rate limited)...", "info")
+                    def vt_cb(label, result):
+                        if result.get('is_malicious'):
+                            self._log(f"    [!!] MALICIOUS: {label} — {result['detection_ratio']}", "error")
+                        elif result.get('status') == 'found':
+                            self._log(f"    [OK] {label} — {result['detection_ratio']}", "info")
+                        else:
+                            self._log(f"    [--] {label} — {result.get('status', 'unknown')}", "info")
+                    vt_results = vt_batch_check(vt_targets, api_key, callback=vt_cb)
+                    for label, result in vt_results:
+                        db.insert_evidence('virustotal', 'VirusTotal API',
+                                           f"VT: {label} — {result['detection_ratio']}",
+                                           None, result, case_id)
+                else:
+                    self._log("    ⚠ No API key provided. Enter your VirusTotal API key.", "warn")
+
+            # VSS Extraction
+            if self.mod_vss.get():
+                self._log("")
+                self._log("[*] Scanning Volume Shadow Copies...", "header")
+                vss_results = collect_vss_info()
+                if vss_results:
+                    for vss in vss_results:
+                        db.insert_evidence('vss', 'VSS Extractor',
+                                           f"Shadow Copy: {vss['creation_time']} ({len(vss['artifacts_found'])} artifacts)",
+                                           vss['creation_time'], vss, case_id)
+                    self._log(f"    ✓ {len(vss_results)} shadow copies scanned.", "info")
+                else:
+                    self._log("    ⚠ No shadow copies found. Try running as Administrator.", "warn")
 
             # Timeline
             self._log("")
