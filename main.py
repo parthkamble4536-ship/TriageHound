@@ -29,6 +29,8 @@ def main():
     parser.add_argument('--case', type=str, required=True, help="Case ID")
     parser.add_argument('--investigator', type=str, required=True, help="Investigator Name")
     parser.add_argument('--target', type=str, required=True, help="Target System Name")
+    parser.add_argument('--case-name', type=str, default='Forensic Investigation',
+                        help="Case name / title for the report (default: 'Forensic Investigation')")
     parser.add_argument('--db-path', type=str, default='forensics.db', help="Path to SQLite database")
     parser.add_argument('--evtx', type=str, default=None, help="Path to .evtx file for event log parsing")
     parser.add_argument('--hash-file', type=str, default=None, action='append',
@@ -53,7 +55,7 @@ def main():
 
     # Initialize DB
     db = DBManager(args.db_path)
-    db.insert_case_metadata(args.case, args.investigator, "Forensic Investigation", args.target)
+    db.insert_case_metadata(args.case, args.investigator, args.case_name, args.target)
 
     print("=" * 60)
     print("       DIGITAL FORENSICS TOOLKIT")
@@ -318,7 +320,7 @@ def main():
     print(f"[*] Generating PDF Report: {report_path}...")
     case_info = {
         'case_id': args.case,
-        'case_name': 'Forensic Investigation',
+        'case_name': args.case_name,
         'investigator_name': args.investigator,
         'target_system': args.target
     }

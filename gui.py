@@ -182,12 +182,14 @@ class ForensicToolkitGUI:
 
         # Case fields — inline
         self.case_id_var = tk.StringVar(value="CASE001")
+        self.case_name_var = tk.StringVar(value="Forensic Investigation")
         self.investigator_var = tk.StringVar()
         self.target_var = tk.StringVar(value=platform.node())
 
-        fields = [("Case ID", self.case_id_var, 12),
-                  ("Investigator", self.investigator_var, 14),
-                  ("Target", self.target_var, 14)]
+        fields = [("Case ID", self.case_id_var, 10),
+                  ("Case Name", self.case_name_var, 16),
+                  ("Investigator", self.investigator_var, 12),
+                  ("Target", self.target_var, 12)]
 
         for label_text, var, width in fields:
             f = tk.Frame(topbar, bg=BG_PANEL)
@@ -511,6 +513,7 @@ class ForensicToolkitGUI:
     # ── Investigation Runner ──────────────────────────────────────────────────
     def _run_investigation(self):
         case_id = self.case_id_var.get().strip()
+        case_name = self.case_name_var.get().strip() or 'Forensic Investigation'
         investigator = self.investigator_var.get().strip()
         target = self.target_var.get().strip()
 
@@ -528,11 +531,11 @@ class ForensicToolkitGUI:
             self.status_tree.delete(item)
 
         thread = threading.Thread(target=self._collect,
-                                  args=(case_id, investigator, target),
+                                  args=(case_id, case_name, investigator, target),
                                   daemon=True)
         thread.start()
 
-    def _collect(self, case_id, investigator, target):
+    def _collect(self, case_id, case_name, investigator, target):
         try:
             db_path = f"forensics_{case_id}.db"
             if os.path.exists(db_path):
@@ -540,7 +543,7 @@ class ForensicToolkitGUI:
 
             db = DBManager(db_path)
             db.insert_case_metadata(case_id, investigator,
-                                    "Forensic Investigation", target)
+                                    case_name, target)
             self.db = db
             self.case_id = case_id
 
@@ -911,7 +914,7 @@ class ForensicToolkitGUI:
                 report_path = f"report_{case_id}.pdf"
                 case_info = {
                     'case_id': case_id,
-                    'case_name': 'Forensic Investigation',
+                    'case_name': case_name,
                     'investigator_name': investigator,
                     'target_system': target
                 }

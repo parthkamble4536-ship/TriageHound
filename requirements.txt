@@ -13,8 +13,8 @@ python-evtx==0.8.1
 # Data handling & timeline export
 pandas==2.2.3
 
-# Professional PDF report generation
-reportlab==5.0.0
+# Professional PDF report generation (HTML → PDF)
+weasyprint>=62.0
 pillow==11.2.1
 
 # Threat hunting — YARA malware signatures

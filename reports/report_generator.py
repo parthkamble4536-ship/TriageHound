@@ -1,495 +1,808 @@
 import json
 import os
 import platform
+import sys
 from datetime import datetime
+from html import escape
 
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm, mm
-from reportlab.platypus import (
-    BaseDocTemplate, Frame, HRFlowable, NextPageTemplate, PageBreak,
-    PageTemplate, Paragraph, Spacer, Table, TableStyle
-)
-from reportlab.platypus.flowables import KeepTogether
-
-# ── Colour Palette — Clean Corporate Light Theme ─────────────────────────────
-NAVY        = colors.HexColor('#1a3c6e')
-NAVY_LIGHT  = colors.HexColor('#2c5f9e')
-NAVY_DARK   = colors.HexColor('#0f2847')
-ACCENT      = colors.HexColor('#2563eb')      # Modern blue
-ACCENT_LIGHT = colors.HexColor('#dbeafe')      # Soft blue tint
-
-RED_ALERT   = colors.HexColor('#dc2626')       # Danger red
-RED_BG      = colors.HexColor('#fef2f2')        # Light red background
-RED_BORDER  = colors.HexColor('#fecaca')
-
-AMBER       = colors.HexColor('#d97706')       # Warning amber
-AMBER_BG    = colors.HexColor('#fffbeb')        # Light amber background
-
-GREEN_OK    = colors.HexColor('#16a34a')       # Clean/OK green
-GREEN_BG    = colors.HexColor('#f0fdf4')        # Light green background
-
-WHITE       = colors.white
-PAGE_BG     = colors.white
-ROW_ALT     = colors.HexColor('#f8fafc')       # Very light gray
-ROW_NORMAL  = colors.white
-HEADER_BG   = NAVY                              # Dark navy table headers
-HEADER_TEXT = colors.white
-BODY_TEXT   = colors.HexColor('#1e293b')        # Dark slate for readability
-SUB_TEXT    = colors.HexColor('#64748b')        # Muted text
-BORDER_CLR  = colors.HexColor('#e2e8f0')        # Light border
-SECTION_RULE = colors.HexColor('#cbd5e1')
+# ── Windows GTK DLL path setup (required for WeasyPrint) ─────────────────────
+# Python 3.8+ on Windows no longer searches PATH for DLLs. We must explicitly
+# register the MSYS2 ucrt64 bin directory so WeasyPrint can find Pango/GLib.
+if sys.platform == 'win32':
+    _sys_drive = os.environ.get('SYSTEMDRIVE', 'C:')
+    _gtk_path = os.path.join(_sys_drive + os.sep, 'msys64', 'ucrt64', 'bin')
+    if os.path.isdir(_gtk_path):
+        os.add_dll_directory(_gtk_path)
 
 
-def _styles():
-    """Build a complete set of custom paragraph styles for light theme."""
-    s = getSampleStyleSheet()
+# ── Report ID Counter ─────────────────────────────────────────────────────────
 
-    cover_title = ParagraphStyle(
-        'CoverTitle', fontName='Helvetica-Bold', fontSize=28,
-        textColor=WHITE, spaceAfter=6, alignment=TA_CENTER, leading=34)
-
-    cover_sub = ParagraphStyle(
-        'CoverSub', fontName='Helvetica', fontSize=13,
-        textColor=colors.HexColor('#94a3b8'), spaceAfter=4, alignment=TA_CENTER)
-
-    cover_meta = ParagraphStyle(
-        'CoverMeta', fontName='Helvetica-Bold', fontSize=11,
-        textColor=WHITE, spaceAfter=4, alignment=TA_CENTER)
-
-    section_heading = ParagraphStyle(
-        'SectionHeading', fontName='Helvetica-Bold', fontSize=14,
-        textColor=NAVY, spaceBefore=14, spaceAfter=6, leading=18)
-
-    normal_text = ParagraphStyle(
-        'NormalText', fontName='Helvetica', fontSize=9,
-        textColor=BODY_TEXT, spaceAfter=2, leading=13)
-
-    small_text = ParagraphStyle(
-        'SmallText', fontName='Helvetica', fontSize=7.5,
-        textColor=BODY_TEXT, leading=11)
-
-    alert_red = ParagraphStyle(
-        'AlertRed', fontName='Helvetica-Bold', fontSize=10,
-        textColor=RED_ALERT, spaceAfter=4)
-
-    alert_amber = ParagraphStyle(
-        'AlertAmber', fontName='Helvetica-Bold', fontSize=10,
-        textColor=AMBER, spaceAfter=4)
-
-    label = ParagraphStyle(
-        'Label', fontName='Helvetica-Bold', fontSize=9,
-        textColor=SUB_TEXT, spaceAfter=1)
-
-    # Detections Summary styles
-    stat_big = ParagraphStyle(
-        'StatBig', fontName='Helvetica-Bold', fontSize=22,
-        textColor=NAVY, alignment=TA_CENTER, leading=26)
-
-    stat_label = ParagraphStyle(
-        'StatLabel', fontName='Helvetica', fontSize=8,
-        textColor=SUB_TEXT, alignment=TA_CENTER, spaceAfter=2)
-
-    finding_text = ParagraphStyle(
-        'FindingText', fontName='Helvetica', fontSize=10,
-        textColor=BODY_TEXT, spaceAfter=6, leading=14,
-        leftIndent=12, bulletIndent=0)
-
-    return dict(
-        cover_title=cover_title, cover_sub=cover_sub, cover_meta=cover_meta,
-        section_heading=section_heading, normal_text=normal_text,
-        small_text=small_text, alert_red=alert_red, alert_amber=alert_amber,
-        label=label, stat_big=stat_big, stat_label=stat_label,
-        finding_text=finding_text
-    )
-
-
-# ── Page templates ────────────────────────────────────────────────────────────
-def _draw_shield(canvas, cx, cy, size):
-    """Draw a forensic shield/badge emblem at the given center point."""
-    import math
-    s = size
-    # Shield outline path
-    p = canvas.beginPath()
-    # Top left corner
-    p.moveTo(cx - s * 0.5, cy + s * 0.35)
-    # Top edge with slight curve
-    p.lineTo(cx - s * 0.5, cy + s * 0.5)
-    p.lineTo(cx + s * 0.5, cy + s * 0.5)
-    p.lineTo(cx + s * 0.5, cy + s * 0.35)
-    # Right side curves down
-    p.lineTo(cx + s * 0.45, cy - s * 0.1)
-    p.lineTo(cx + s * 0.3, cy - s * 0.35)
-    # Bottom point
-    p.lineTo(cx, cy - s * 0.55)
-    # Left side mirrors
-    p.lineTo(cx - s * 0.3, cy - s * 0.35)
-    p.lineTo(cx - s * 0.45, cy - s * 0.1)
-    p.close()
-
-    # Shield fill with navy-light
-    canvas.setFillColor(colors.HexColor('#1e4d8c'))
-    canvas.drawPath(p, fill=1, stroke=0)
-
-    # Shield border
-    canvas.setStrokeColor(colors.HexColor('#58a6ff'))
-    canvas.setLineWidth(2)
-    canvas.drawPath(p, fill=0, stroke=1)
-
-    # Inner shield border (smaller)
-    p2 = canvas.beginPath()
-    r = 0.82  # inner ratio
-    p2.moveTo(cx - s * 0.5 * r, cy + s * 0.35 * r)
-    p2.lineTo(cx - s * 0.5 * r, cy + s * 0.5 * r)
-    p2.lineTo(cx + s * 0.5 * r, cy + s * 0.5 * r)
-    p2.lineTo(cx + s * 0.5 * r, cy + s * 0.35 * r)
-    p2.lineTo(cx + s * 0.45 * r, cy - s * 0.1 * r)
-    p2.lineTo(cx + s * 0.3 * r, cy - s * 0.35 * r)
-    p2.lineTo(cx, cy - s * 0.55 * r)
-    p2.lineTo(cx - s * 0.3 * r, cy - s * 0.35 * r)
-    p2.lineTo(cx - s * 0.45 * r, cy - s * 0.1 * r)
-    p2.close()
-    canvas.setStrokeColor(colors.HexColor('#58a6ff40'))
-    canvas.setLineWidth(1)
-    canvas.drawPath(p2, fill=0, stroke=1)
-
-    # Magnifying glass icon in center of shield
-    # Circle part
-    canvas.setStrokeColor(colors.HexColor('#dbeafe'))
-    canvas.setLineWidth(2.5)
-    canvas.circle(cx - s * 0.02, cy + s * 0.05, s * 0.15, fill=0, stroke=1)
-    # Handle
-    canvas.setLineWidth(2.5)
-    hx = cx + s * 0.1
-    hy = cy - s * 0.08
-    canvas.line(hx, hy, hx + s * 0.12, hy - s * 0.12)
-
-    # "DF" text inside the magnifying glass
-    canvas.setFont('Helvetica-Bold', s * 0.12)
-    canvas.setFillColor(colors.HexColor('#dbeafe'))
-    canvas.drawCentredString(cx - s * 0.02, cy + s * 0.01, 'DF')
-
-
-def _on_cover_page(canvas, doc):
-    canvas.saveState()
-    w, h = A4
-    mid = w / 2
-
-    # ── Full white background
-    canvas.setFillColor(WHITE)
-    canvas.rect(0, 0, w, h, fill=1, stroke=0)
-
-    # ── Top navy section (upper 52% of page)
-    split_y = h * 0.48
-    canvas.setFillColor(NAVY_DARK)
-    canvas.rect(0, split_y, w, h - split_y, fill=1, stroke=0)
-
-    # Subtle diagonal accent lines in the navy area
-    canvas.setStrokeColor(colors.HexColor('#ffffff08'))
-    canvas.setLineWidth(1)
-    for i in range(0, int(w) + 200, 40):
-        canvas.line(i, h, i - 200, split_y)
-
-    # ── Classification banner at the very top
-    canvas.setFillColor(colors.HexColor('#dc2626'))
-    canvas.rect(0, h - 8*mm, w, 8*mm, fill=1, stroke=0)
-    canvas.setFont('Helvetica-Bold', 8)
-    canvas.setFillColor(WHITE)
-    canvas.drawCentredString(mid, h - 5.5*mm, 'CONFIDENTIAL — RESTRICTED DISTRIBUTION')
-
-    # ── Shield emblem
-    _draw_shield(canvas, mid, h * 0.72, 80)
-
-    # ── Title text (below shield, inside navy)
-    canvas.setFont('Helvetica-Bold', 24)
-    canvas.setFillColor(WHITE)
-    canvas.drawCentredString(mid, h * 0.58, 'FORENSIC INVESTIGATION')
-    canvas.setFont('Helvetica-Bold', 24)
-    canvas.drawCentredString(mid, h * 0.54, 'REPORT')
-
-    # ── Accent divider line
-    canvas.setStrokeColor(colors.HexColor('#58a6ff'))
-    canvas.setLineWidth(2)
-    line_w = 120
-    canvas.line(mid - line_w/2, h * 0.525, mid + line_w/2, h * 0.525)
-
-    # ── Blue accent stripe at the junction
-    canvas.setFillColor(ACCENT)
-    canvas.rect(0, split_y - 2*mm, w, 4*mm, fill=1, stroke=0)
-
-    # ── Bottom dark navy bar
-    canvas.setFillColor(NAVY_DARK)
-    canvas.rect(0, 0, w, 12*mm, fill=1, stroke=0)
-    canvas.setFont('Helvetica', 7)
-    canvas.setFillColor(colors.HexColor('#ffffff60'))
-    canvas.drawCentredString(mid, 4*mm,
-                             'TriageHound — Digital Forensics & Incident Response Toolkit  •  v1.0')
-
-    # ── Left/Right accent lines on the white section
-    canvas.setStrokeColor(NAVY)
-    canvas.setLineWidth(3)
-    canvas.line(15*mm, split_y - 10*mm, 15*mm, 18*mm)
-    canvas.line(w - 15*mm, split_y - 10*mm, w - 15*mm, 18*mm)
-
-    # Thin inner lines
-    canvas.setStrokeColor(BORDER_CLR)
-    canvas.setLineWidth(0.5)
-    canvas.line(17*mm, split_y - 12*mm, 17*mm, 20*mm)
-    canvas.line(w - 17*mm, split_y - 12*mm, w - 17*mm, 20*mm)
-
-    canvas.restoreState()
-
-
-def _on_body_page(canvas, doc):
-    canvas.saveState()
-    w, h = A4
-    # White background
-    canvas.setFillColor(WHITE)
-    canvas.rect(0, 0, w, h, fill=1, stroke=0)
-    # Top header bar — slim navy
-    canvas.setFillColor(NAVY)
-    canvas.rect(0, h - 12*mm, w, 12*mm, fill=1, stroke=0)
-    # Thin accent line below header
-    canvas.setFillColor(ACCENT)
-    canvas.rect(0, h - 12.5*mm, w, 0.5*mm, fill=1, stroke=0)
-    # Footer separator line
-    canvas.setStrokeColor(BORDER_CLR)
-    canvas.setLineWidth(0.5)
-    canvas.line(18*mm, 11*mm, w - 18*mm, 11*mm)
-    # Header text
-    canvas.setFont('Helvetica-Bold', 7.5)
-    canvas.setFillColor(WHITE)
-    canvas.drawString(18*mm, h - 8.5*mm, 'FORENSIC INVESTIGATION REPORT')
-    canvas.setFont('Helvetica', 7.5)
-    canvas.drawRightString(w - 18*mm, h - 8.5*mm, f'Page {doc.page}')
-    # Footer text
-    canvas.setFont('Helvetica', 7)
-    canvas.setFillColor(SUB_TEXT)
-    canvas.drawString(18*mm, 5*mm, 'CONFIDENTIAL — Authorised Personnel Only')
-    canvas.drawRightString(w - 18*mm, 5*mm,
-                           f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    canvas.restoreState()
-
-
-# ── Table helper — Light theme with colour-coded severity ─────────────────────
-def _make_table(data, col_widths, header_bg=None, alert_rows=None,
-                severity='normal'):
+def _get_next_report_id():
     """
-    Build a styled light-theme table.
-
-    severity controls alert row colouring:
-        'critical' — red background for alert rows
-        'warning'  — amber background for alert rows
-        'normal'   — standard alternating rows (no special highlight)
-
-    alert_rows: set of 1-based row indices to highlight.
+    Auto-generate a sequential report ID like DFL-2026-0001.
+    Tracked via a JSON counter file in the project root.
     """
-    if header_bg is None:
-        header_bg = HEADER_BG
-    alert_rows = alert_rows or set()
+    counter_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                'report_counter.json')
+    counter = 0
+    if os.path.exists(counter_path):
+        try:
+            with open(counter_path, 'r') as f:
+                data = json.load(f)
+                counter = data.get('count', 0)
+        except (json.JSONDecodeError, IOError):
+            counter = 0
 
-    style_cmds = [
-        # Header row
-        ('BACKGROUND',    (0, 0), (-1, 0), header_bg),
-        ('TEXTCOLOR',     (0, 0), (-1, 0), HEADER_TEXT),
-        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE',      (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
-        ('TOPPADDING',    (0, 0), (-1, 0), 7),
-        # Body rows
-        ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE',      (0, 1), (-1, -1), 7.5),
-        ('TEXTCOLOR',     (0, 1), (-1, -1), BODY_TEXT),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
-        ('TOPPADDING',    (0, 1), (-1, -1), 5),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_NORMAL, ROW_ALT]),
-        ('GRID',          (0, 0), (-1, -1), 0.4, BORDER_CLR),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
-        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
-    ]
+    counter += 1
+    with open(counter_path, 'w') as f:
+        json.dump({'count': counter}, f)
 
-    # Colour-code alert rows based on severity
-    for row_idx in alert_rows:
-        if severity == 'critical':
-            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), RED_BG))
-            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), RED_ALERT))
-            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
-        elif severity == 'warning':
-            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), AMBER_BG))
-            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), AMBER))
-            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
-        else:
-            # Default: subtle highlight
-            style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), RED_BG))
-            style_cmds.append(('TEXTCOLOR',  (0, row_idx), (-1, row_idx), RED_ALERT))
-            style_cmds.append(('FONTNAME',   (0, row_idx), (-1, row_idx), 'Helvetica-Bold'))
-
-    t = Table(data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle(style_cmds))
-    return t
+    year = datetime.now().strftime('%Y')
+    return f"DFL-{year}-{counter:04d}"
 
 
-def _section_header(title, st, subtitle=None):
-    elems = []
-    elems.append(Spacer(1, 2*mm))
-    elems.append(HRFlowable(width='100%', thickness=1, color=NAVY, spaceAfter=4))
-    elems.append(Paragraph(title, st['section_heading']))
-    if subtitle:
-        elems.append(Paragraph(subtitle, st['label']))
-    elems.append(Spacer(1, 2*mm))
-    return elems
+# ── HTML Template Helpers ─────────────────────────────────────────────────────
+
+def _esc(text, maxlen=0):
+    """Escape HTML and optionally truncate."""
+    text = str(text) if text else '\u2014'
+    if maxlen and len(text) > maxlen:
+        text = text[:maxlen] + '\u2026'
+    return escape(text)
 
 
-def _truncate(text, maxlen=80):
-    text = str(text) if text else '—'
-    return text[:maxlen] + '…' if len(text) > maxlen else text
-
-
-def _severity_badge(level):
-    """Return a coloured text string based on severity level."""
+def _severity_html(level):
+    """Return an HTML span with the appropriate severity class."""
     level_upper = str(level).upper()
     if level_upper in ('CRITICAL', 'HIGH'):
-        return f'🔴 {level_upper}'
+        return f'<span class="sev-high">{level_upper}</span>'
     elif level_upper in ('MEDIUM',):
-        return f'🟡 {level_upper}'
+        return f'<span class="sev-med">{level_upper}</span>'
     elif level_upper in ('LOW', 'INFO'):
-        return f'🟢 {level_upper}'
-    return level_upper
+        return f'<span class="sev-low">{level_upper}</span>'
+    return escape(level_upper)
 
 
-# ── Detections Summary Builder ────────────────────────────────────────────────
-def _build_detections_summary(st, counts, yara_rows, sigma_rows, vt_rows,
-                              startup_rows):
-    """Build the executive Detections Summary page elements."""
-    elements = []
+# ── CSS ───────────────────────────────────────────────────────────────────────
 
-    elements.append(Spacer(1, 5*mm))
-    elements.append(HRFlowable(width='100%', thickness=2, color=NAVY, spaceAfter=6))
-    elements.append(Paragraph('DETECTIONS SUMMARY', st['section_heading']))
-    elements.append(Paragraph('Executive overview of key findings from this investigation',
-                              st['label']))
-    elements.append(Spacer(1, 6*mm))
+REPORT_CSS = """
+@page {
+    size: A4;
+    margin: 25mm 20mm 25mm 20mm;
 
-    # ── Stats Grid ──
+    /* Header */
+    @top-left { content: ""; border-bottom: 2px solid #8b0000; width: 10%; }
+    @top-center {
+        content: "CONFIDENTIAL // RESTRICTED DISTRIBUTION // AUTHORIZED PERSONNEL ONLY";
+        color: #8b0000; font-size: 9pt; font-weight: bold; font-family: Arial, sans-serif;
+        letter-spacing: 1px; border-bottom: 2px solid #8b0000; width: 80%;
+        text-align: center; padding-bottom: 5px; vertical-align: bottom; white-space: nowrap;
+    }
+    @top-right { content: ""; border-bottom: 2px solid #8b0000; width: 10%; }
+
+    /* Footer */
+    @bottom-left {
+        content: "Generated by: TriageHound v1.0"; font-size: 8pt;
+        font-family: 'Courier New', Courier, monospace;
+        color: #333; white-space: nowrap; border-top: 2px solid #8b0000; width: 30%;
+        text-align: left; vertical-align: top; padding-top: 8px;
+    }
+    @bottom-center {
+        content: ""; border-top: 2px solid #8b0000; width: 40%;
+        vertical-align: top; padding-top: 8px;
+    }
+    @bottom-right {
+        content: "Page " counter(page); font-size: 9pt; font-family: Arial, sans-serif;
+        color: #000; white-space: nowrap; border-top: 2px solid #8b0000; width: 30%;
+        text-align: right; vertical-align: top; padding-top: 8px;
+    }
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000; margin: 0; padding: 0; font-size: 10pt;
+}
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Cover Page */
+.cover-page { min-height: 230mm; position: relative; }
+.header-table {
+    width: 100%; border-bottom: 4px double #000;
+    padding-bottom: 15px; margin-bottom: 30px;
+}
+.institute-name {
+    font-size: 22pt; font-family: Arial, sans-serif;
+    font-weight: 900; text-transform: uppercase; margin: 0; line-height: 1;
+}
+.institute-sub {
+    font-size: 11pt; font-family: Arial, sans-serif;
+    letter-spacing: 2px; color: #444; margin-top: 5px;
+}
+.doc-control {
+    border: 1px solid #000; padding: 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 9pt; text-align: left; background-color: #f9f9f9;
+}
+.doc-control td { padding: 2px 5px; }
+
+.report-title-container { text-align: center; margin: 50px 0; }
+.report-title-container h1 {
+    font-size: 26pt; margin: 0; text-transform: uppercase;
+    font-family: Arial, sans-serif; letter-spacing: 1px;
+}
+.report-title-container h2 {
+    font-size: 14pt; font-weight: normal; margin: 10px 0 0 0; color: #333;
+}
+
+table.case-info {
+    width: 100%; border-collapse: collapse;
+    border: 2px solid #000; margin-bottom: 40px;
+}
+table.case-info th, table.case-info td {
+    border: 1px solid #000; padding: 10px 15px; font-size: 12pt;
+}
+table.case-info th {
+    width: 30%; background-color: #f2f2f2; text-align: left;
+    text-transform: uppercase; font-family: Arial, sans-serif;
+    font-size: 10pt; font-weight: bold;
+}
+table.case-info td {
+    font-family: 'Courier New', Courier, monospace; font-weight: bold;
+}
+
+.attestation {
+    border: 1px solid #000; padding: 20px; font-size: 11pt;
+    line-height: 1.5; background-color: #fbfbfb; text-align: justify;
+}
+.signature-block {
+    margin-top: 40px; display: table; width: 100%;
+}
+.signature-line {
+    display: table-cell; width: 45%; border-top: 1px solid #000;
+    padding-top: 5px; text-align: center;
+    font-family: Arial, sans-serif; font-size: 10pt;
+}
+.signature-spacer { display: table-cell; width: 10%; }
+
+/* General Content Styles */
+.content-section { padding-top: 10mm; page-break-before: always; }
+h2.section-heading {
+    font-size: 14pt; font-family: Arial, sans-serif;
+    text-transform: uppercase; border-bottom: 2px solid #000;
+    padding-bottom: 5px; margin-top: 0; margin-bottom: 15px;
+}
+
+/* Data Tables */
+.data-table {
+    width: 100%; border-collapse: collapse;
+    margin-bottom: 25px; border: 1px solid #000;
+}
+.data-table th, .data-table td {
+    border: 1px solid #000; padding: 6px 8px;
+    font-size: 9pt; page-break-inside: avoid;
+}
+.data-table th {
+    background-color: #f2f2f2; font-family: Arial, sans-serif;
+    text-transform: uppercase; text-align: left;
+    font-size: 8.5pt; font-weight: bold;
+}
+.data-table td {
+    font-family: 'Courier New', Courier, monospace; word-break: break-all;
+}
+
+.metrics-grid {
+    width: 100%; border-collapse: collapse;
+    margin-bottom: 25px; border: 2px solid #000;
+}
+.metrics-grid th, .metrics-grid td {
+    border: 1px solid #000; text-align: center; padding: 12px;
+}
+.metrics-grid th {
+    background-color: #f2f2f2; font-family: Arial, sans-serif;
+    font-size: 8pt; text-transform: uppercase;
+}
+.metrics-grid td {
+    font-size: 20pt; font-weight: bold;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.sev-high {
+    background-color: #8b0000; color: #fff; padding: 2px 6px;
+    font-family: Arial, sans-serif; font-weight: bold; font-size: 8pt;
+}
+.sev-med {
+    background-color: #d2691e; color: #fff; padding: 2px 6px;
+    font-family: Arial, sans-serif; font-weight: bold; font-size: 8pt;
+}
+.sev-low {
+    background-color: #2e8b57; color: #fff; padding: 2px 6px;
+    font-family: Arial, sans-serif; font-weight: bold; font-size: 8pt;
+}
+"""
+
+
+# ── HTML Section Builders ─────────────────────────────────────────────────────
+
+def _build_cover_page(case_info, report_id, now_str):
+    """Build the cover page HTML."""
+    case_id = _esc(case_info.get('case_id', '\u2014'))
+    case_name = _esc(case_info.get('case_name', 'Forensic Investigation'))
+    investigator = _esc(case_info.get('investigator_name', '\u2014'))
+    target = _esc(case_info.get('target_system', '\u2014'))
+    os_platform = f"{platform.system()} {platform.release()}"
+    issued_date = datetime.now().strftime('%Y-%m-%d')
+
+    return f"""
+    <div class="cover-page">
+        <table class="header-table">
+            <tr>
+                <td style="width: 60%;">
+                    <div class="institute-name">Digital Forensics Lab</div>
+                    <div class="institute-sub">DEPARTMENT OF CYBER INVESTIGATIONS</div>
+                </td>
+                <td style="width: 40%; text-align: right;">
+                    <table class="doc-control" style="float: right;">
+                        <tr><td><strong>REPORT ID:</strong></td><td>{_esc(report_id)}</td></tr>
+                        <tr><td><strong>CASE REF:</strong></td><td>{case_id}</td></tr>
+                        <tr><td><strong>ISSUED:</strong></td><td>{issued_date}</td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <div class="report-title-container">
+            <h1>Forensic Investigation Report</h1>
+            <h2>OFFICIAL RECORD OF FINDINGS</h2>
+        </div>
+
+        <table class="case-info">
+            <tr><th>Case Name</th><td>{case_name}</td></tr>
+            <tr><th>Lead Investigator</th><td>{investigator}</td></tr>
+            <tr><th>Target System / Hostname</th><td>{target}</td></tr>
+            <tr><th>Operating System Platform</th><td>{_esc(os_platform)}</td></tr>
+            <tr><th>Collection Timestamp</th><td>{_esc(now_str)}</td></tr>
+            <tr><th>Diagnostic Engine</th><td>TriageHound v1.0</td></tr>
+        </table>
+
+        <div class="attestation">
+            <strong>INVESTIGATOR'S ATTESTATION:</strong><br><br>
+            I, the undersigned lead investigator, hereby certify that the digital forensic
+            analysis described within this report was conducted in a secure laboratory
+            environment. The data extraction, preservation, and analysis procedures utilized
+            adhere strictly to standard operating protocols for digital evidence handling.
+            The findings presented in this document represent a true and accurate reflection
+            of the artifacts acquired from the target system at the specified collection timestamp.
+            <div class="signature-block">
+                <div class="signature-line">
+                    <br><strong>{investigator}</strong><br>Lead Digital Forensics Investigator
+                </div>
+                <div class="signature-spacer"></div>
+                <div class="signature-line">
+                    <br><strong>Date / Signature</strong><br>Lab Director Authorization
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+
+
+def _build_summary_page(counts, yara_rows, sigma_rows):
+    """Build the Executive Summary + Breakdown page."""
     total_artifacts = sum(counts.values()) if counts else 0
+    yara_count = len(yara_rows)
+    sigma_count = len(sigma_rows)
     categories = len([v for v in counts.values() if v > 0]) if counts else 0
 
-    stats_data = [[
-        Paragraph(str(total_artifacts), st['stat_big']),
-        Paragraph(str(categories), st['stat_big']),
-        Paragraph(str(len(yara_rows)), st['stat_big']),
-        Paragraph(str(len(sigma_rows)), st['stat_big']),
-    ], [
-        Paragraph('Evidence Items', st['stat_label']),
-        Paragraph('Categories', st['stat_label']),
-        Paragraph('YARA Hits', st['stat_label']),
-        Paragraph('Sigma Alerts', st['stat_label']),
-    ]]
-    stats_table = Table(stats_data, colWidths=[4.25*cm]*4)
-    stats_style = [
-        ('ALIGN',       (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING',  (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
-        ('TOPPADDING',  (0, 1), (-1, 1), 0),
-        ('BOTTOMPADDING', (0, 1), (-1, 1), 10),
-        ('GRID',        (0, 0), (-1, -1), 0.5, BORDER_CLR),
-        ('BACKGROUND',  (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+    # Threat assessment rows
+    threat_rows = ''
+    for row in yara_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        sev = raw.get('severity', 'MEDIUM').upper()
+        rule = _esc(raw.get('rule', '\u2014'), 40)
+        target_file = _esc(os.path.basename(raw.get('filepath', '\u2014')), 50)
+        threat_rows += f"""
+            <tr>
+                <td>{_severity_html(sev)}</td>
+                <td>{rule}</td>
+                <td>{target_file}</td>
+            </tr>"""
+
+    for row in sigma_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        level = raw.get('rule_level', 'medium').upper()
+        rule_title = _esc(raw.get('rule_title', '\u2014'), 40)
+        threat_rows += f"""
+            <tr>
+                <td>{_severity_html(level)}</td>
+                <td>{rule_title}</td>
+                <td>Sigma Behavioral Detection</td>
+            </tr>"""
+
+    if not threat_rows:
+        threat_rows = """
+            <tr>
+                <td colspan="3" style="text-align: center; color: #2e8b57; font-family: Arial, sans-serif;">
+                    No threats detected \u2014 all checks passed.
+                </td>
+            </tr>"""
+
+    # Evidence breakdown
+    type_map = [
+        ('Processes',        counts.get('process', 0),        'psutil'),
+        ('Recent Files',     counts.get('recent_file', 0),    'Registry'),
+        ('Startup Programs', counts.get('startup_entry', 0),  'Registry + Folders'),
+        ('USB Devices',      counts.get('usb_device', 0),     'Registry'),
+        ('Browser History',  counts.get('browser_history', 0),'Chrome / Edge / Firefox'),
+        ('Event Logs',       counts.get('event_log', 0),      'EVTX Parser'),
+        ('Prefetch',         counts.get('prefetch', 0),       'Prefetch Parser'),
+        ('ShimCache',        counts.get('shimcache', 0),      'Registry (SYSTEM)'),
+        ('USN Journal',      counts.get('usn_journal', 0),    'NTFS Raw I/O'),
+        ('YARA Hits',        counts.get('yara_match', 0),     'YARA Scanner'),
+        ('Sigma Alerts',     counts.get('sigma_alert', 0),    'Sigma Engine'),
+        ('Virus Total',      counts.get('virustotal', 0),     'VirusTotal API'),
+        ('Shadow Copies',    counts.get('vss', 0),            'VSS Extractor'),
     ]
-    # Colour the YARA and Sigma stat cells based on findings
-    if len(yara_rows) > 0:
-        stats_style.append(('BACKGROUND', (2, 0), (2, -1), RED_BG))
-    if len(sigma_rows) > 0:
-        stats_style.append(('BACKGROUND', (3, 0), (3, -1), AMBER_BG))
+    breakdown_rows = ''
+    for label, count, source in type_map:
+        breakdown_rows += f"""
+            <tr><td>{_esc(label)}</td><td>{count}</td><td>{_esc(source)}</td></tr>"""
 
-    stats_table.setStyle(TableStyle(stats_style))
-    elements.append(stats_table)
-    elements.append(Spacer(1, 8*mm))
+    return f"""
+    <div class="content-section">
+        <h2 class="section-heading">1.0 Executive Detections Summary</h2>
+        <table class="metrics-grid">
+            <tr>
+                <th>Evidence Items Analyzed</th>
+                <th>YARA Rule Hits</th>
+                <th>Detection Categories</th>
+                <th>Sigma Alerts Triggered</th>
+            </tr>
+            <tr>
+                <td>{total_artifacts}</td>
+                <td>{yara_count}</td>
+                <td>{categories}</td>
+                <td>{sigma_count}</td>
+            </tr>
+        </table>
 
-    # ── Threat Assessment ──
-    elements.append(HRFlowable(width='100%', thickness=0.5, color=SECTION_RULE,
-                               spaceAfter=4))
-    elements.append(Paragraph('Threat Assessment', ParagraphStyle(
-        'ThreatTitle', fontName='Helvetica-Bold', fontSize=12,
-        textColor=NAVY, spaceAfter=6)))
+        <h2 class="section-heading">2.0 Threat Assessment &amp; Alerts</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 15%;">Severity</th>
+                <th style="width: 35%;">Detection Rule Matched</th>
+                <th style="width: 50%;">Target File / Artifact</th>
+            </tr>
+            {threat_rows}
+        </table>
 
-    findings = []
-
-    # YARA findings
-    if yara_rows:
-        for row in yara_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            sev = raw.get('severity', 'MEDIUM').upper()
-            badge = _severity_badge(sev)
-            findings.append(
-                f"{badge} — YARA rule <b>{_truncate(raw.get('rule', '?'), 40)}</b> "
-                f"matched in <b>{_truncate(os.path.basename(raw.get('filepath', '?')), 30)}</b>"
-            )
-    else:
-        findings.append("🟢 No YARA malware signatures detected in startup executables.")
-
-    # Sigma findings
-    if sigma_rows:
-        for row in sigma_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            level = raw.get('rule_level', 'medium').upper()
-            badge = _severity_badge(level)
-            findings.append(
-                f"{badge} — Sigma alert: <b>{_truncate(raw.get('rule_title', '?'), 50)}</b>"
-            )
-    else:
-        findings.append("🟢 No Sigma behavioral detections triggered.")
-
-    # VirusTotal findings
-    if vt_rows:
-        malicious_vt = [r for r in vt_rows
-                        if json.loads(r.get('raw_data', '{}')).get('is_malicious')]
-        if malicious_vt:
-            for row in malicious_vt:
-                raw = json.loads(row.get('raw_data', '{}'))
-                findings.append(
-                    f"🔴 MALICIOUS — VirusTotal flagged <b>"
-                    f"{_truncate(raw.get('label', '?'), 30)}</b> "
-                    f"({raw.get('detection_ratio', '?')})"
-                )
-        else:
-            findings.append(
-                f"🟢 VirusTotal: All {len(vt_rows)} checked hashes are clean.")
-
-    # Suspicious startup
-    sus_count = sum(1 for r in startup_rows
-                    if json.loads(r.get('raw_data', '{}')).get('flagged_suspicious'))
-    if sus_count:
-        findings.append(f"🟡 MEDIUM — {sus_count} suspicious startup program(s) detected.")
-
-    for f in findings:
-        elements.append(Paragraph(f'• {f}', st['finding_text']))
-
-    elements.append(Spacer(1, 6*mm))
-    elements.append(HRFlowable(width='100%', thickness=0.5, color=SECTION_RULE,
-                               spaceAfter=4))
-
-    return elements
+        <h2 class="section-heading">3.0 Evidence Breakdown Matrix</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 33%;">Artifact Type</th>
+                <th style="width: 33%;">Artifact Count</th>
+                <th style="width: 34%;">Source Module</th>
+            </tr>
+            {breakdown_rows}
+        </table>
+    </div>
+    """
 
 
-# ── Main report function ──────────────────────────────────────────────────────
+def _build_yara_section(yara_rows):
+    """Build YARA Malware Hits section."""
+    if not yara_rows:
+        return ''
+
+    rows_html = ''
+    for row in yara_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('rule', '\u2014'), 30)}</td>
+                <td>{_severity_html(raw.get('severity', '\u2014'))}</td>
+                <td>{_esc(os.path.basename(raw.get('filepath', '\u2014')), 30)}</td>
+                <td>{_esc(raw.get('description', '\u2014'), 50)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">4.0 YARA Malware Hits</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 30%;">Rule Matched</th>
+                <th style="width: 10%;">Severity</th>
+                <th style="width: 25%;">Target File</th>
+                <th style="width: 35%;">Description</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_startup_section(startup_rows):
+    """Build Startup Programs section."""
+    if not startup_rows:
+        return ''
+
+    rows_html = ''
+    for row in startup_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        is_sus = raw.get('flagged_suspicious', False)
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('name', '\u2014'), 25)}</td>
+                <td>{_esc(raw.get('command', '\u2014'), 50)}</td>
+                <td>{_esc(raw.get('source_type', '\u2014'))}</td>
+                <td>{'<span class="sev-high">YES</span>' if is_sus else 'No'}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">5.0 Startup Programs (Autoruns)</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 50%;">Command Path</th>
+                <th style="width: 20%;">Source</th>
+                <th style="width: 10%;">Suspicious</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_usb_section(usb_rows):
+    """Build USB Device History section."""
+    if not usb_rows:
+        return ''
+
+    rows_html = ''
+    for row in usb_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('friendly_name', '\u2014'), 40)}</td>
+                <td>{_esc(raw.get('serial_number', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('device_id', 'N/A'), 40)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">6.0 USB Device History</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 40%;">Device Name</th>
+                <th style="width: 30%;">Serial Number</th>
+                <th style="width: 30%;">Device ID</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_processes_section(process_rows):
+    """Build Running Processes section."""
+    if not process_rows:
+        return ''
+
+    rows_html = ''
+    for row in process_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        mem_rss = raw.get('memory_rss')
+        mem_mb = str(round(mem_rss / (1024 * 1024), 1)) if mem_rss else '\u2014'
+        cpu = str(raw.get('cpu_percent', '\u2014'))
+        username = _esc(raw.get('username', '\u2014'), 25)
+        rows_html += f"""
+            <tr>
+                <td>{raw.get('pid', '\u2014')}</td>
+                <td>{_esc(raw.get('name', '\u2014'), 35)}</td>
+                <td>{cpu}</td>
+                <td>{mem_mb}</td>
+                <td>{username}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">7.0 Running Processes Snapshot (All {len(process_rows)})</h2>
+        <table class="data-table">
+            <tr>
+                <th>PID</th>
+                <th>Process Name</th>
+                <th>CPU %</th>
+                <th>Memory (MB)</th>
+                <th>Username</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_recent_files_section(recent_rows):
+    """Build Recently Accessed Files section."""
+    if not recent_rows:
+        return ''
+
+    rows_html = ''
+    for row in recent_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('filename', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('filepath', raw.get('path', 'Registry Entry')), 70)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">8.0 Recently Accessed Files (All {len(recent_rows)})</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 30%;">Filename Fragment</th>
+                <th style="width: 70%;">Registry Reference / Full Path</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_shimcache_section(shimcache_rows):
+    """Build ShimCache section."""
+    if not shimcache_rows:
+        return ''
+
+    rows_html = ''
+    for row in shimcache_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{raw.get('cache_position', '\u2014')}</td>
+                <td>{_esc(raw.get('executable_path', '\u2014'), 65)}</td>
+                <td>{_esc(raw.get('last_modified', '\u2014'), 25)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">9.0 Application Compatibility Cache (ShimCache) (All {len(shimcache_rows)})</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 10%;">#</th>
+                <th style="width: 60%;">Executable Path</th>
+                <th style="width: 30%;">Last Modified</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_timeline_section(timeline_data):
+    """Build Chronological Event Timeline section."""
+    if not timeline_data:
+        return ''
+
+    rows_html = ''
+    for e in timeline_data:
+        rows_html += f"""
+            <tr>
+                <td>{_esc(str(e.get('time', '\u2014')), 25)}</td>
+                <td>{_esc(str(e.get('type', '\u2014')), 18)}</td>
+                <td>{_esc(str(e.get('source', '\u2014')), 18)}</td>
+                <td>{_esc(str(e.get('event', '\u2014')), 55)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">10.0 Chronological Event Timeline (All {len(timeline_data)})</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 25%;">Timestamp</th>
+                <th style="width: 15%;">Type</th>
+                <th style="width: 15%;">Source</th>
+                <th style="width: 45%;">Event Description</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_browser_section(browser_rows):
+    """Build Browser History section."""
+    if not browser_rows:
+        return ''
+
+    rows_html = ''
+    for row in browser_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('browser', '\u2014'))}</td>
+                <td>{_esc(raw.get('title', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('url', '\u2014'), 50)}</td>
+                <td>{_esc(raw.get('last_visited', '\u2014'), 22)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">11.0 Browser History (All {len(browser_rows)})</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 15%;">Browser</th>
+                <th style="width: 25%;">Title</th>
+                <th style="width: 40%;">URL</th>
+                <th style="width: 20%;">Last Visited</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_prefetch_section(prefetch_rows):
+    """Build Prefetch section."""
+    if not prefetch_rows:
+        return ''
+
+    rows_html = ''
+    for row in prefetch_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('executable_name', '\u2014'), 35)}</td>
+                <td>{raw.get('run_count', '\u2014')}</td>
+                <td>{_esc(raw.get('last_run', '\u2014'), 22)}</td>
+                <td>{_esc(raw.get('pf_filename', '\u2014'), 30)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">12.0 Prefetch \u2014 Execution Evidence</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 30%;">Executable</th>
+                <th style="width: 15%;">Run Count</th>
+                <th style="width: 25%;">Last Run</th>
+                <th style="width: 30%;">Prefetch File</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_usn_section(usn_rows):
+    """Build USN Journal section."""
+    if not usn_rows:
+        return ''
+
+    rows_html = ''
+    for row in usn_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('timestamp', '\u2014'), 22)}</td>
+                <td>{_esc(raw.get('filename', '\u2014'), 35)}</td>
+                <td>{_esc(raw.get('reason_summary', '\u2014'), 35)}</td>
+                <td>{'Yes' if raw.get('is_directory') else 'No'}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">13.0 USN Journal \u2014 File System Changes (All {len(usn_rows)})</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 25%;">Timestamp</th>
+                <th style="width: 30%;">Filename</th>
+                <th style="width: 30%;">Reason</th>
+                <th style="width: 15%;">Dir</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_sigma_section(sigma_rows):
+    """Build Sigma Alerts section."""
+    if not sigma_rows:
+        return ''
+
+    rows_html = ''
+    for row in sigma_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        matched = raw.get('matched_event', {})
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('rule_title', '\u2014'), 35)}</td>
+                <td>{_severity_html(raw.get('rule_level', '\u2014'))}</td>
+                <td>{matched.get('event_id', '\u2014')}</td>
+                <td>{_esc(matched.get('timestamp', '\u2014'), 22)}</td>
+                <td>{_esc(raw.get('sigma_file', '\u2014'), 25)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">14.0 Sigma Alerts \u2014 Behavioral Detections</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 30%;">Rule</th>
+                <th style="width: 12%;">Level</th>
+                <th style="width: 10%;">Event ID</th>
+                <th style="width: 23%;">Timestamp</th>
+                <th style="width: 25%;">Rule File</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_vt_section(vt_rows):
+    """Build VirusTotal section."""
+    if not vt_rows:
+        return ''
+
+    rows_html = ''
+    for row in vt_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        is_mal = raw.get('is_malicious')
+        status = '<span class="sev-high">MALICIOUS</span>' if is_mal else 'Clean'
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('label', raw.get('meaningful_name', '\u2014')), 30)}</td>
+                <td>{_esc(raw.get('detection_ratio', '\u2014'))}</td>
+                <td>{_esc(raw.get('threat_label', '\u2014'), 30)}</td>
+                <td>{status}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">15.0 VirusTotal \u2014 Hash Reputation</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 30%;">File</th>
+                <th style="width: 20%;">Detection Ratio</th>
+                <th style="width: 25%;">Threat Label</th>
+                <th style="width: 25%;">Status</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+def _build_vss_section(vss_rows):
+    """Build Volume Shadow Copies section."""
+    if not vss_rows:
+        return ''
+
+    rows_html = ''
+    for row in vss_rows:
+        raw = json.loads(row.get('raw_data', '{}'))
+        artifacts = raw.get('artifacts_found', [])
+        artifact_names = ', '.join(
+            [a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
+        rows_html += f"""
+            <tr>
+                <td>{_esc(raw.get('shadow_id', '\u2014'), 40)}</td>
+                <td>{_esc(raw.get('creation_time', '\u2014'), 25)}</td>
+                <td>{_esc(artifact_names, 40)}</td>
+            </tr>"""
+
+    return f"""
+        <h2 class="section-heading">16.0 Volume Shadow Copies</h2>
+        <table class="data-table">
+            <tr>
+                <th style="width: 40%;">Shadow Copy</th>
+                <th style="width: 30%;">Creation Time</th>
+                <th style="width: 30%;">Artifacts Found</th>
+            </tr>
+            {rows_html}
+        </table>
+    """
+
+
+# ── Main Report Function ─────────────────────────────────────────────────────
+
 def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
     """
-    Generate a professional light-themed forensic investigation PDF report.
+    Generate a professional official forensic investigation PDF report.
+
+    Uses WeasyPrint to convert a structured HTML document to PDF with
+    proper @page headers/footers, cover page, attestation, and all
+    evidence sections.
 
     Args:
-        case_info:    dict with case_id, case_name, investigator_name, target_system
+        case_info:     dict with case_id, case_name, investigator_name, target_system
         timeline_data: list of timeline event dicts (for the timeline section)
-        output_path:  where to write the PDF
-        db_manager:   DBManager instance — if provided, enables per-type sections
+        output_path:   where to write the PDF
+        db_manager:    DBManager instance \u2014 if provided, enables per-type sections
     """
-    w, h = A4
-    st = _styles()
+    from weasyprint import HTML
+
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
     case_id = case_info.get('case_id', 'UNKNOWN')
+    report_id = _get_next_report_id()
 
     # Pull per-type evidence if db_manager available
     counts = {}
@@ -508,12 +821,12 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
 
     if db_manager:
         counts = db_manager.get_artifact_counts(case_id)
-        yara_rows    = db_manager.get_evidence_by_type(case_id, 'yara_match')
-        startup_rows = db_manager.get_evidence_by_type(case_id, 'startup_entry')
-        process_rows = db_manager.get_evidence_by_type(case_id, 'process')
-        browser_rows = db_manager.get_evidence_by_type(case_id, 'browser_history')
-        usb_rows     = db_manager.get_evidence_by_type(case_id, 'usb_device')
-        recent_rows  = db_manager.get_evidence_by_type(case_id, 'recent_file')
+        yara_rows     = db_manager.get_evidence_by_type(case_id, 'yara_match')
+        startup_rows  = db_manager.get_evidence_by_type(case_id, 'startup_entry')
+        process_rows  = db_manager.get_evidence_by_type(case_id, 'process')
+        browser_rows  = db_manager.get_evidence_by_type(case_id, 'browser_history')
+        usb_rows      = db_manager.get_evidence_by_type(case_id, 'usb_device')
+        recent_rows   = db_manager.get_evidence_by_type(case_id, 'recent_file')
         prefetch_rows = db_manager.get_evidence_by_type(case_id, 'prefetch')
         usn_rows      = db_manager.get_evidence_by_type(case_id, 'usn_journal')
         shimcache_rows = db_manager.get_evidence_by_type(case_id, 'shimcache')
@@ -521,350 +834,84 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         vt_rows       = db_manager.get_evidence_by_type(case_id, 'virustotal')
         vss_rows      = db_manager.get_evidence_by_type(case_id, 'vss')
 
-    # ── Document setup ────────────────────────────────────────────────────────
-    doc = BaseDocTemplate(
-        output_path, pagesize=A4,
-        leftMargin=18*mm, rightMargin=18*mm,
-        topMargin=20*mm, bottomMargin=18*mm
-    )
-    cover_frame = Frame(0, 0, w, h, leftPadding=30*mm, rightPadding=20*mm,
-                        topPadding=30*mm, bottomPadding=20*mm, id='cover')
-    body_frame  = Frame(18*mm, 14*mm, w - 36*mm, h - 30*mm,
-                        leftPadding=0, rightPadding=0,
-                        topPadding=4*mm, bottomPadding=2*mm, id='body')
+    # ── Build the full HTML document ──────────────────────────────────────────
 
-    doc.addPageTemplates([
-        PageTemplate(id='Cover', frames=[cover_frame], onPage=_on_cover_page),
-        PageTemplate(id='Body',  frames=[body_frame],  onPage=_on_body_page),
-    ])
+    # YARA + Startup + USB grouped together (page 3)
+    page3_sections = ''
+    page3_sections += _build_yara_section(yara_rows)
+    page3_sections += _build_startup_section(startup_rows)
+    page3_sections += _build_usb_section(usb_rows)
 
-    elements = []
+    # Processes + Recent Files (page 4)
+    page4_sections = ''
+    page4_sections += _build_processes_section(process_rows)
+    page4_sections += _build_recent_files_section(recent_rows)
 
-    # ── COVER PAGE ────────────────────────────────────────────────────────────
-    # The cover page visuals (shield, title, classification banner) are drawn
-    # by _on_cover_page on the canvas. Here we only add the metadata card,
-    # positioned in the white lower section of the cover.
-    elements.append(Spacer(1, 14.5*cm))  # Push past the navy section
+    # ShimCache + Timeline (page 5)
+    page5_sections = ''
+    page5_sections += _build_shimcache_section(shimcache_rows)
+    page5_sections += _build_timeline_section(timeline_data)
 
-    # Case metadata card — clean bordered table on the white section
-    meta = [
-        ('CASE ID',       case_info.get('case_id', '—')),
-        ('CASE NAME',     case_info.get('case_name', 'Forensic Investigation')),
-        ('INVESTIGATOR',  case_info.get('investigator_name', '—')),
-        ('TARGET SYSTEM', case_info.get('target_system', '—')),
-        ('PLATFORM',      f"{platform.system()} {platform.release()}"),
-        ('DATE',          now_str),
-    ]
+    # Additional sections on separate pages
+    extra_sections = ''
+    extra_sections += _build_browser_section(browser_rows)
+    extra_sections += _build_prefetch_section(prefetch_rows)
+    extra_sections += _build_usn_section(usn_rows)
+    extra_sections += _build_sigma_section(sigma_rows)
+    extra_sections += _build_vt_section(vt_rows)
+    extra_sections += _build_vss_section(vss_rows)
 
-    cover_label = ParagraphStyle(
-        'CoverLabel', fontName='Helvetica-Bold', fontSize=8,
-        textColor=SUB_TEXT, alignment=TA_RIGHT)
-    cover_value = ParagraphStyle(
-        'CoverValue', fontName='Helvetica-Bold', fontSize=10,
-        textColor=NAVY_DARK)
+    # Build page 3 content (only if there's data)
+    page3_html = ''
+    if page3_sections.strip():
+        page3_html = f'<div class="content-section">{page3_sections}</div>'
 
-    meta_data = [[Paragraph(k, cover_label),
-                  Paragraph(v, cover_value)] for k, v in meta]
-    meta_table = Table(meta_data, colWidths=[4.5*cm, 9*cm])
-    meta_table.setStyle(TableStyle([
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 8),
-        ('LINEBELOW',     (0, 0), (-1, -2), 0.5, BORDER_CLR),
-        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN',         (0, 0), (0, -1), 'RIGHT'),
-        ('RIGHTPADDING',  (0, 0), (0, -1), 16),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 10),
-        # Top border line
-        ('LINEABOVE',     (0, 0), (-1, 0), 1.5, NAVY),
-        # Bottom border line
-        ('LINEBELOW',     (0, -1), (-1, -1), 1.5, NAVY),
-    ]))
-    elements.append(meta_table)
+    # Build page 4 content
+    page4_html = ''
+    if page4_sections.strip():
+        page4_html = f'<div class="content-section">{page4_sections}</div>'
 
-    # Transition to body pages
-    elements.append(NextPageTemplate('Body'))
-    elements.append(PageBreak())
+    # Build page 5 content
+    page5_html = ''
+    if page5_sections.strip():
+        page5_html = f'<div class="content-section">{page5_sections}</div>'
 
-    # ── DETECTIONS SUMMARY (Executive Page) ───────────────────────────────────
-    elements += _build_detections_summary(
-        st, counts, yara_rows, sigma_rows, vt_rows, startup_rows)
+    # Build extra pages
+    extra_html = ''
+    if extra_sections.strip():
+        extra_html = f'<div class="content-section">{extra_sections}</div>'
 
-    # ── Evidence breakdown table ──
-    elements.append(Paragraph('Evidence Breakdown', ParagraphStyle(
-        'BreakdownTitle', fontName='Helvetica-Bold', fontSize=11,
-        textColor=NAVY, spaceAfter=4)))
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Official Forensic Report \u2014 {_esc(case_id)}</title>
+    <style>
+{REPORT_CSS}
+    </style>
+</head>
+<body>
 
-    summary_data = [['Artifact Type', 'Count', 'Source Module']]
-    type_map = [
-        ('Processes',       counts.get('process', 0),         'psutil'),
-        ('Recent Files',    counts.get('recent_file', 0),     'Registry'),
-        ('Startup Programs', counts.get('startup_entry', 0),  'Registry + Folders'),
-        ('USB Devices',     counts.get('usb_device', 0),      'Registry'),
-        ('Browser History', counts.get('browser_history', 0), 'Chrome / Edge / Firefox'),
-        ('Event Logs',      counts.get('event_log', 0),       'EVTX Parser'),
-        ('Prefetch',        counts.get('prefetch', 0),        'Prefetch Parser'),
-        ('ShimCache',       counts.get('shimcache', 0),       'Registry (SYSTEM)'),
-        ('USN Journal',     counts.get('usn_journal', 0),     'NTFS Raw I/O'),
-        ('YARA Hits',       counts.get('yara_match', 0),      'YARA Scanner'),
-        ('Sigma Alerts',    counts.get('sigma_alert', 0),     'Sigma Engine'),
-        ('VirusTotal',      counts.get('virustotal', 0),      'VirusTotal API'),
-        ('Shadow Copies',   counts.get('vss', 0),             'VSS Extractor'),
-    ]
-    alert_rows_set = set()
-    for i, (label, count, source) in enumerate(type_map, 1):
-        summary_data.append([label, str(count), source])
-        if label in ('YARA Hits', 'Sigma Alerts') and count > 0:
-            alert_rows_set.add(i)
+    <!-- COVER PAGE -->
+    {_build_cover_page(case_info, report_id, now_str)}
 
-    elements.append(_make_table(summary_data, [6*cm, 3*cm, 8*cm],
-                                alert_rows=alert_rows_set, severity='critical'))
-    elements.append(Spacer(1, 5*mm))
+    <!-- PAGE 2: SUMMARY & BREAKDOWN -->
+    {_build_summary_page(counts, yara_rows, sigma_rows)}
 
-    # ── YARA MALWARE HITS ─────────────────────────────────────────────────────
-    if yara_rows:
-        elements.append(PageBreak())
-        elements += _section_header(
-            '⚠  YARA Malware Hits', st,
-            subtitle=f'{len(yara_rows)} potential threat(s) detected')
-        yara_table_data = [['Rule', 'Severity', 'File', 'Description']]
-        for row in yara_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            yara_table_data.append([
-                _truncate(raw.get('rule', '—'), 30),
-                _severity_badge(raw.get('severity', '—')),
-                _truncate(os.path.basename(raw.get('filepath', '—')), 30),
-                _truncate(raw.get('description', '—'), 50),
-            ])
-        elements.append(_make_table(
-            yara_table_data, [4*cm, 2.5*cm, 4*cm, 6.5*cm],
-            header_bg=RED_ALERT,
-            alert_rows=set(range(1, len(yara_table_data))),
-            severity='critical'
-        ))
-        elements.append(Spacer(1, 4*mm))
+    <!-- PAGE 3: YARA, STARTUP, USB -->
+    {page3_html}
 
-    # ── STARTUP ENTRIES ───────────────────────────────────────────────────────
-    if startup_rows:
-        elements.append(PageBreak())
-        elements += _section_header('Startup Programs', st,
-                                    subtitle='Programs configured to run at system startup')
-        su_data = [['Name', 'Command', 'Source', 'Suspicious']]
-        alert_su = set()
-        for i, row in enumerate(startup_rows, 1):
-            raw = json.loads(row.get('raw_data', '{}'))
-            is_sus = raw.get('flagged_suspicious', False)
-            if is_sus:
-                alert_su.add(i)
-            su_data.append([
-                _truncate(raw.get('name', '—'), 25),
-                _truncate(raw.get('command', '—'), 45),
-                raw.get('source_type', '—'),
-                '⚠  YES' if is_sus else 'No',
-            ])
-        elements.append(_make_table(su_data, [3.5*cm, 7*cm, 3.5*cm, 3*cm],
-                                    alert_rows=alert_su, severity='warning'))
-        elements.append(Spacer(1, 4*mm))
+    <!-- PAGE 4: PROCESSES & RECENT FILES -->
+    {page4_html}
 
-    # ── PROCESSES ─────────────────────────────────────────────────────────────
-    if process_rows:
-        elements.append(PageBreak())
-        display_procs = process_rows[:50]
-        elements += _section_header('Running Processes', st,
-                                    subtitle=f'Top {len(display_procs)} of {len(process_rows)} processes at collection time')
-        p_data = [['PID', 'Name', 'CPU %', 'Memory (MB)', 'Username']]
-        for row in display_procs:
-            raw = json.loads(row.get('raw_data', '{}'))
-            mem_mb = round(raw.get('memory_rss', 0) / (1024*1024), 1) if raw.get('memory_rss') else '—'
-            p_data.append([
-                str(raw.get('pid', '—')),
-                _truncate(raw.get('name', '—'), 30),
-                str(raw.get('cpu_percent', '—')),
-                str(mem_mb),
-                _truncate(raw.get('username', '—'), 25),
-            ])
-        elements.append(_make_table(p_data, [2*cm, 5*cm, 2.5*cm, 3*cm, 4.5*cm]))
-        elements.append(Spacer(1, 4*mm))
+    <!-- PAGE 5: SHIMCACHE & TIMELINE -->
+    {page5_html}
 
-    # ── BROWSER HISTORY ───────────────────────────────────────────────────────
-    if browser_rows:
-        elements.append(PageBreak())
-        display_bh = browser_rows[:60]
-        elements += _section_header('Browser History', st,
-                                    subtitle=f'Last {len(display_bh)} of {len(browser_rows)} entries (Chrome, Edge, Firefox)')
-        bh_data = [['Browser', 'Title', 'URL', 'Last Visited']]
-        for row in display_bh:
-            raw = json.loads(row.get('raw_data', '{}'))
-            bh_data.append([
-                raw.get('browser', '—'),
-                _truncate(raw.get('title', '—'), 30),
-                _truncate(raw.get('url', '—'), 50),
-                _truncate(raw.get('last_visited', '—'), 22),
-            ])
-        elements.append(_make_table(bh_data, [2.5*cm, 4.5*cm, 7*cm, 3*cm]))
-        elements.append(Spacer(1, 4*mm))
+    <!-- ADDITIONAL SECTIONS -->
+    {extra_html}
 
-    # ── USB DEVICES ───────────────────────────────────────────────────────────
-    if usb_rows:
-        elements.append(PageBreak())
-        elements += _section_header('USB Device History', st,
-                                    subtitle='All USB devices ever connected to this system')
-        usb_data = [['Device Name', 'Serial Number', 'Device ID']]
-        for row in usb_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            usb_data.append([
-                _truncate(raw.get('friendly_name', '—'), 35),
-                _truncate(raw.get('serial_number', '—'), 25),
-                _truncate(raw.get('device_id', '—'), 40),
-            ])
-        elements.append(_make_table(usb_data, [5*cm, 4.5*cm, 7.5*cm]))
-        elements.append(Spacer(1, 4*mm))
+</body>
+</html>"""
 
-    # ── RECENT FILES ─────────────────────────────────────────────────────────
-    if recent_rows:
-        elements.append(PageBreak())
-        display_rf = recent_rows[:50]
-        elements += _section_header('Recently Accessed Files', st,
-                                    subtitle=f'{len(display_rf)} of {len(recent_rows)} recently accessed files from Registry')
-        rf_data = [['Filename', 'Full Path']]
-        for row in display_rf:
-            raw = json.loads(row.get('raw_data', '{}'))
-            rf_data.append([
-                _truncate(raw.get('filename', '—'), 30),
-                _truncate(raw.get('filepath', raw.get('path', '—')), 60),
-            ])
-        elements.append(_make_table(rf_data, [5*cm, 12*cm]))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── PREFETCH ──────────────────────────────────────────────────────────────
-    if prefetch_rows:
-        elements.append(PageBreak())
-        elements += _section_header('Prefetch — Execution Evidence', st,
-                                    subtitle='Proof of program execution from Windows Prefetch files')
-        pf_data = [['Executable', 'Run Count', 'Last Run', 'Prefetch File']]
-        for row in prefetch_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            pf_data.append([
-                _truncate(raw.get('executable_name', '—'), 35),
-                str(raw.get('run_count', '—')),
-                _truncate(raw.get('last_run', '—'), 22),
-                _truncate(raw.get('pf_filename', '—'), 30),
-            ])
-        elements.append(_make_table(pf_data, [6*cm, 2.5*cm, 4*cm, 4.5*cm]))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── SHIMCACHE ─────────────────────────────────────────────────────────────
-    if shimcache_rows:
-        elements.append(PageBreak())
-        display_sc = shimcache_rows[:100]
-        elements += _section_header('ShimCache — Application Compatibility Cache', st,
-                                    subtitle=f'{len(display_sc)} of {len(shimcache_rows)} cached executable entries')
-        sc_data = [['#', 'Executable Path', 'Last Modified']]
-        for row in display_sc:
-            raw = json.loads(row.get('raw_data', '{}'))
-            sc_data.append([
-                str(raw.get('cache_position', '—')),
-                _truncate(raw.get('executable_path', '—'), 65),
-                _truncate(raw.get('last_modified', '—'), 22),
-            ])
-        elements.append(_make_table(sc_data, [1.5*cm, 11.5*cm, 4*cm]))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── USN JOURNAL ───────────────────────────────────────────────────────────
-    if usn_rows:
-        elements.append(PageBreak())
-        display_usn = usn_rows[:200]
-        elements += _section_header('USN Journal — File System Changes', st,
-                                    subtitle=f'Last {len(display_usn)} of {len(usn_rows)} NTFS change log entries')
-        usn_data = [['Timestamp', 'Filename', 'Reason', 'Dir']]
-        for row in display_usn:
-            raw = json.loads(row.get('raw_data', '{}'))
-            usn_data.append([
-                _truncate(raw.get('timestamp', '—'), 22),
-                _truncate(raw.get('filename', '—'), 35),
-                _truncate(raw.get('reason_summary', '—'), 35),
-                'Yes' if raw.get('is_directory') else 'No',
-            ])
-        elements.append(_make_table(usn_data, [4*cm, 5*cm, 6*cm, 2*cm]))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── SIGMA ALERTS ──────────────────────────────────────────────────────────
-    if sigma_rows:
-        elements.append(PageBreak())
-        elements += _section_header('⚠  Sigma Alerts — Behavioral Detections', st,
-                                    subtitle=f'{len(sigma_rows)} suspicious behaviors detected in event logs')
-        sig_data = [['Rule', 'Level', 'Event ID', 'Timestamp', 'Rule File']]
-        for row in sigma_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            sig_data.append([
-                _truncate(raw.get('rule_title', '—'), 35),
-                _severity_badge(raw.get('rule_level', '—')),
-                str(raw.get('matched_event', {}).get('event_id', '—')),
-                _truncate(raw.get('matched_event', {}).get('timestamp', '—'), 22),
-                _truncate(raw.get('sigma_file', '—'), 25),
-            ])
-        elements.append(_make_table(
-            sig_data, [5*cm, 2*cm, 2*cm, 4*cm, 4*cm],
-            header_bg=AMBER,
-            alert_rows=set(range(1, len(sig_data))),
-            severity='warning'
-        ))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── VIRUSTOTAL ────────────────────────────────────────────────────────────
-    if vt_rows:
-        elements.append(PageBreak())
-        elements += _section_header('VirusTotal — Hash Reputation', st,
-                                    subtitle='File hash lookups against 70+ antivirus engines')
-        vt_data = [['File', 'Detection Ratio', 'Threat Label', 'Status']]
-        vt_alert_rows = set()
-        for i, row in enumerate(vt_rows, 1):
-            raw = json.loads(row.get('raw_data', '{}'))
-            if raw.get('is_malicious'):
-                vt_alert_rows.add(i)
-            vt_data.append([
-                _truncate(raw.get('label', raw.get('meaningful_name', '—')), 30),
-                raw.get('detection_ratio', '—'),
-                _truncate(raw.get('threat_label', '—'), 30),
-                '🔴 MALICIOUS' if raw.get('is_malicious') else '🟢 Clean',
-            ])
-        elements.append(_make_table(
-            vt_data, [5*cm, 3*cm, 5*cm, 4*cm],
-            alert_rows=vt_alert_rows, severity='critical'
-        ))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── VSS ───────────────────────────────────────────────────────────────────
-    if vss_rows:
-        elements.append(PageBreak())
-        elements += _section_header('Volume Shadow Copies', st,
-                                    subtitle='Recovered forensic artifacts from system shadow copies')
-        vss_data = [['Shadow Copy', 'Creation Time', 'Artifacts Found']]
-        for row in vss_rows:
-            raw = json.loads(row.get('raw_data', '{}'))
-            artifacts = raw.get('artifacts_found', [])
-            artifact_names = ', '.join(
-                [a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
-            vss_data.append([
-                _truncate(raw.get('shadow_id', '—'), 40),
-                _truncate(raw.get('creation_time', '—'), 25),
-                _truncate(artifact_names, 40),
-            ])
-        elements.append(_make_table(vss_data, [6*cm, 4.5*cm, 6.5*cm]))
-        elements.append(Spacer(1, 4*mm))
-
-    # ── TIMELINE ──────────────────────────────────────────────────────────────
-    if timeline_data:
-        elements.append(PageBreak())
-        elements += _section_header('Chronological Event Timeline', st,
-                                    subtitle=f'{len(timeline_data)} timestamped events ordered chronologically')
-        tl_data = [['Timestamp', 'Type', 'Source', 'Event']]
-        for e in timeline_data[:200]:
-            tl_data.append([
-                _truncate(str(e.get('time', '—')), 22),
-                _truncate(str(e.get('type', '—')), 18),
-                _truncate(str(e.get('source', '—')), 18),
-                _truncate(str(e.get('event', '—')), 55),
-            ])
-        elements.append(_make_table(tl_data, [4*cm, 3*cm, 3*cm, 7*cm]))
-
-    doc.build(elements)
+    # ── Convert to PDF ────────────────────────────────────────────────────────
+    HTML(string=html_content).write_pdf(output_path)
