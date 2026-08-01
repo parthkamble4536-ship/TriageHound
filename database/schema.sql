@@ -2,13 +2,19 @@
 
 CREATE TABLE evidence_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    artifact_type TEXT NOT NULL,      -- 'browser', 'usb', 'process', etc.
-    source TEXT,                       -- e.g. 'Chrome', 'Registry'
+    -- Type of artifact: 'browser', 'usb', 'process', etc.
+    artifact_type TEXT NOT NULL,
+    -- Source module: e.g. 'Chrome', 'Registry'
+    source TEXT,
     description TEXT,
-    timestamp TEXT,                    -- ISO format, feeds the timeline
-    raw_data TEXT,                     -- JSON blob of full details
-    sha256_hash TEXT,                   -- hash of raw_data for integrity
-    collected_at TEXT,                 -- when the tool collected it
+    -- ISO format timestamp, feeds the timeline
+    timestamp TEXT,
+    -- JSON blob of full artifact details
+    raw_data TEXT,
+    -- SHA-256 hash of raw_data for integrity verification
+    sha256_hash TEXT,
+    -- When the tool collected this evidence
+    collected_at TEXT,
     case_id TEXT
 );
 
