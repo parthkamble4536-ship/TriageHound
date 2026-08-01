@@ -911,7 +911,8 @@ class ForensicToolkitGUI:
 
             # ── Exports ──
             if self.export_pdf.get():
-                report_path = f"report_{case_id}.pdf"
+                safe_name = case_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
+                report_path = f"{case_id}_{safe_name}.pdf"
                 case_info = {
                     'case_id': case_id,
                     'case_name': case_name,

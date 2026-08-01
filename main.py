@@ -316,7 +316,8 @@ def main():
         print(f"    Exported timeline to CSV:  {csv_path}")
 
     # ── Generate PDF Report ───────────────────────────────────
-    report_path = f"report_{args.case}.pdf"
+    safe_name = args.case_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
+    report_path = f"{args.case}_{safe_name}.pdf"
     print(f"[*] Generating PDF Report: {report_path}...")
     case_info = {
         'case_id': args.case,
