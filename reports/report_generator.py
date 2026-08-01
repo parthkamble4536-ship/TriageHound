@@ -798,7 +798,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None):
         output_path:   where to write the PDF
         db_manager:    DBManager instance \u2014 if provided, enables per-type sections
     """
-    from weasyprint import HTML
+    from weasyprint import HTML  # type: ignore[import-untyped]
 
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
     case_id = case_info.get('case_id', 'UNKNOWN')
