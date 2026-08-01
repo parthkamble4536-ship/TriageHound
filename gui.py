@@ -27,32 +27,33 @@ from utils.helpers import export_to_json, export_to_csv
 
 
 # ── Colour Palette ───────────────────────────────────────────────────────────
-BG_DARK      = "#0d1117"        # Main background
-BG_SIDEBAR   = "#161b22"        # Sidebar / panels
-BG_CARD      = "#1c2128"        # Cards / inputs
-BG_HOVER     = "#21262d"        # Hover states
-BORDER       = "#30363d"        # Subtle borders
-ACCENT       = "#58a6ff"        # Primary accent (links, active)
-ACCENT_GREEN = "#3fb950"        # Success / Run button
-ACCENT_RED   = "#f85149"        # Danger / Alerts
-ACCENT_AMBER = "#d29922"        # Warnings
-TEXT_PRIMARY  = "#e6edf3"       # Main text
-TEXT_SECONDARY = "#8b949e"      # Muted text
-TEXT_DIM      = "#484f58"       # Very dim text
+BG_DARK      = "#0d1117"
+BG_PANEL     = "#161b22"
+BG_CARD      = "#1c2128"
+BG_INPUT     = "#0d1117"
+BG_HOVER     = "#21262d"
+BORDER       = "#30363d"
+ACCENT       = "#58a6ff"
+ACCENT_GREEN = "#3fb950"
+ACCENT_RED   = "#f85149"
+ACCENT_AMBER = "#d29922"
+TEXT_PRIMARY  = "#e6edf3"
+TEXT_SECONDARY = "#8b949e"
+TEXT_DIM      = "#484f58"
+BRAND_CYAN   = "#79c0ff"
 
 
 class ForensicToolkitGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("TriageHound — Digital Forensics & Incident Response")
-        self.root.geometry("1100x780")
-        self.root.minsize(960, 680)
+        self.root.geometry("1120x720")
+        self.root.minsize(1000, 650)
         self.root.configure(bg=BG_DARK)
 
         self.db = None
         self.case_id = None
         self.timeline_data = []
-        self._module_status = {}  # Track per-module status for dashboard
 
         self._setup_styles()
         self._build_ui()
@@ -62,66 +63,61 @@ class ForensicToolkitGUI:
         self.style = ttk.Style()
         self.style.theme_use('clam')
 
-        # Frames
         self.style.configure("TFrame", background=BG_DARK)
-        self.style.configure("Sidebar.TFrame", background=BG_SIDEBAR)
+        self.style.configure("Panel.TFrame", background=BG_PANEL)
         self.style.configure("Card.TFrame", background=BG_CARD)
 
-        # Labels
         self.style.configure("TLabel", background=BG_DARK, foreground=TEXT_PRIMARY,
                              font=("Segoe UI", 10))
-        self.style.configure("Sidebar.TLabel", background=BG_SIDEBAR,
+        self.style.configure("Panel.TLabel", background=BG_PANEL,
                              foreground=TEXT_PRIMARY, font=("Segoe UI", 10))
-        self.style.configure("Brand.TLabel", background=BG_SIDEBAR,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 16, "bold"))
-        self.style.configure("Version.TLabel", background=BG_SIDEBAR,
+        self.style.configure("Category.TLabel", background=BG_PANEL,
+                             foreground=ACCENT, font=("Segoe UI", 8, "bold"))
+        self.style.configure("Dim.TLabel", background=BG_PANEL,
                              foreground=TEXT_DIM, font=("Segoe UI", 8))
-        self.style.configure("Category.TLabel", background=BG_SIDEBAR,
-                             foreground=ACCENT, font=("Segoe UI", 9, "bold"))
         self.style.configure("Sub.TLabel", background=BG_DARK,
                              foreground=TEXT_SECONDARY, font=("Segoe UI", 9))
-        self.style.configure("SubSB.TLabel", background=BG_SIDEBAR,
-                             foreground=TEXT_SECONDARY, font=("Segoe UI", 8))
+        self.style.configure("TopBar.TLabel", background=BG_PANEL,
+                             foreground=TEXT_PRIMARY, font=("Segoe UI", 9))
         self.style.configure("Header.TLabel", background=BG_DARK,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 14, "bold"))
-        self.style.configure("StatValue.TLabel", background=BG_CARD,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 20, "bold"))
-        self.style.configure("StatLabel.TLabel", background=BG_CARD,
-                             foreground=TEXT_SECONDARY, font=("Segoe UI", 9))
+                             foreground=TEXT_PRIMARY, font=("Segoe UI", 13, "bold"))
+
+        # Stat card styles
+        self.style.configure("StatVal.TLabel", background=BG_CARD,
+                             foreground=TEXT_PRIMARY, font=("Segoe UI", 18, "bold"))
+        self.style.configure("StatLbl.TLabel", background=BG_CARD,
+                             foreground=TEXT_SECONDARY, font=("Segoe UI", 8))
         self.style.configure("StatGreen.TLabel", background=BG_CARD,
-                             foreground=ACCENT_GREEN, font=("Segoe UI", 20, "bold"))
+                             foreground=ACCENT_GREEN, font=("Segoe UI", 18, "bold"))
         self.style.configure("StatRed.TLabel", background=BG_CARD,
-                             foreground=ACCENT_RED, font=("Segoe UI", 20, "bold"))
+                             foreground=ACCENT_RED, font=("Segoe UI", 18, "bold"))
         self.style.configure("StatAmber.TLabel", background=BG_CARD,
-                             foreground=ACCENT_AMBER, font=("Segoe UI", 20, "bold"))
+                             foreground=ACCENT_AMBER, font=("Segoe UI", 18, "bold"))
 
         # Entries
-        self.style.configure("TEntry", fieldbackground=BG_CARD, foreground=TEXT_PRIMARY,
-                             insertcolor=TEXT_PRIMARY, font=("Segoe UI", 10),
-                             borderwidth=1)
+        self.style.configure("TEntry", fieldbackground=BG_INPUT,
+                             foreground=TEXT_PRIMARY, insertcolor=TEXT_PRIMARY,
+                             font=("Segoe UI", 10))
 
         # Buttons
-        self.style.configure("Run.TButton", background=ACCENT_GREEN, foreground="#ffffff",
-                             font=("Segoe UI", 11, "bold"), padding=(16, 8))
+        self.style.configure("Run.TButton", background=ACCENT_GREEN,
+                             foreground="#ffffff", font=("Segoe UI", 11, "bold"),
+                             padding=(20, 8))
         self.style.map("Run.TButton",
                        background=[("active", "#2ea043"), ("disabled", "#21262d")])
         self.style.configure("Secondary.TButton", background=BG_CARD,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 9), padding=(8, 4))
+                             foreground=TEXT_PRIMARY, font=("Segoe UI", 9),
+                             padding=(8, 4))
         self.style.map("Secondary.TButton",
                        background=[("active", BG_HOVER), ("disabled", "#21262d")])
-        self.style.configure("Accent.TButton", background=ACCENT,
-                             foreground="#ffffff", font=("Segoe UI", 9, "bold"),
-                             padding=(10, 5))
-        self.style.map("Accent.TButton",
-                       background=[("active", "#1f6feb"), ("disabled", "#21262d")])
 
         # Checkbuttons
-        self.style.configure("TCheckbutton", background=BG_SIDEBAR,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 10))
-        self.style.configure("Sidebar.TCheckbutton", background=BG_SIDEBAR,
-                             foreground=TEXT_PRIMARY, font=("Segoe UI", 10))
-        self.style.map("Sidebar.TCheckbutton",
-                       background=[("active", BG_HOVER)])
+        self.style.configure("Mod.TCheckbutton", background=BG_PANEL,
+                             foreground=TEXT_PRIMARY, font=("Segoe UI", 9))
+        self.style.map("Mod.TCheckbutton", background=[("active", BG_HOVER)])
+        self.style.configure("Export.TCheckbutton", background=BG_PANEL,
+                             foreground=TEXT_SECONDARY, font=("Segoe UI", 9))
+        self.style.map("Export.TCheckbutton", background=[("active", BG_HOVER)])
 
         # Notebook
         self.style.configure("TNotebook", background=BG_DARK, borderwidth=0)
@@ -135,110 +131,212 @@ class ForensicToolkitGUI:
         # Treeview
         self.style.configure("Treeview", background=BG_CARD, foreground=TEXT_PRIMARY,
                              fieldbackground=BG_CARD, font=("Segoe UI", 9),
-                             rowheight=24)
-        self.style.configure("Treeview.Heading", background=BG_SIDEBAR,
+                             rowheight=22)
+        self.style.configure("Treeview.Heading", background=BG_PANEL,
                              foreground=TEXT_PRIMARY, font=("Segoe UI", 9, "bold"))
         self.style.map("Treeview", background=[("selected", "#1f6feb")])
 
         # Progressbar
         self.style.configure("Green.Horizontal.TProgressbar",
                              background=ACCENT_GREEN, troughcolor=BG_CARD,
-                             borderwidth=0, thickness=6)
+                             borderwidth=0, thickness=4)
 
-        # Separator
-        self.style.configure("Sidebar.TSeparator", background=BORDER)
+        # LabelFrame
+        self.style.configure("Panel.TLabelframe", background=BG_PANEL,
+                             foreground=ACCENT, font=("Segoe UI", 9, "bold"))
+        self.style.configure("Panel.TLabelframe.Label", background=BG_PANEL,
+                             foreground=ACCENT, font=("Segoe UI", 9, "bold"))
 
     # ── Build UI ──────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # Main horizontal layout: sidebar | content
-        main_pane = ttk.Frame(self.root)
-        main_pane.pack(fill=tk.BOTH, expand=True)
+        # ═══ TOP BAR ═══ (Brand + Case Info + Run Button — always visible)
+        self._build_topbar()
 
-        # ── SIDEBAR (Left) ──
-        self.sidebar = tk.Frame(main_pane, bg=BG_SIDEBAR, width=300)
-        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
-        self.sidebar.pack_propagate(False)
+        # ═══ MAIN AREA ═══ (Modules panel left | Dashboard right)
+        main = ttk.Frame(self.root)
+        main.pack(fill=tk.BOTH, expand=True)
 
-        self._build_sidebar()
+        # Left: Module selection panel
+        self._build_modules_panel(main)
 
-        # ── CONTENT (Right) ──
-        content = ttk.Frame(main_pane)
-        content.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Right: Dashboard + Log
+        self._build_dashboard(main)
 
-        self._build_content(content)
+    # ── Top Bar ───────────────────────────────────────────────────────────────
+    def _build_topbar(self):
+        topbar = tk.Frame(self.root, bg=BG_PANEL, height=60)
+        topbar.pack(fill=tk.X)
+        topbar.pack_propagate(False)
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
-    def _build_sidebar(self):
-        sb = self.sidebar
+        # Brand
+        brand = tk.Frame(topbar, bg=BG_PANEL)
+        brand.pack(side=tk.LEFT, padx=(16, 20))
+        tk.Label(brand, text="🔍 TriageHound", bg=BG_PANEL, fg=BRAND_CYAN,
+                 font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT)
+        tk.Label(brand, text="  v1.0", bg=BG_PANEL, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(side=tk.LEFT, pady=(4, 0))
 
-        # Brand header
-        brand_frame = tk.Frame(sb, bg=BG_SIDEBAR)
-        brand_frame.pack(fill=tk.X, padx=16, pady=(16, 4))
-        tk.Label(brand_frame, text="🔍 TriageHound", bg=BG_SIDEBAR,
-                 fg=TEXT_PRIMARY, font=("Segoe UI", 16, "bold")).pack(anchor=tk.W)
-        tk.Label(brand_frame, text="Digital Forensics & IR Toolkit  •  v1.0",
-                 bg=BG_SIDEBAR, fg=TEXT_DIM, font=("Segoe UI", 8)).pack(anchor=tk.W)
+        # Thin vertical separator
+        tk.Frame(topbar, bg=BORDER, width=1).pack(side=tk.LEFT, fill=tk.Y,
+                                                    padx=(0, 16), pady=12)
 
-        # Separator
-        tk.Frame(sb, bg=BORDER, height=1).pack(fill=tk.X, padx=16, pady=(12, 12))
-
-        # ── Case Info ──
-        self._sidebar_category(sb, "CASE INFORMATION")
-
-        case_inner = tk.Frame(sb, bg=BG_SIDEBAR)
-        case_inner.pack(fill=tk.X, padx=16, pady=(0, 8))
-
+        # Case fields — inline
         self.case_id_var = tk.StringVar(value="CASE001")
         self.investigator_var = tk.StringVar()
         self.target_var = tk.StringVar(value=platform.node())
 
-        for label_text, var in [("Case ID", self.case_id_var),
-                                ("Investigator", self.investigator_var),
-                                ("Target System", self.target_var)]:
-            tk.Label(case_inner, text=label_text, bg=BG_SIDEBAR,
-                     fg=TEXT_SECONDARY, font=("Segoe UI", 9)).pack(anchor=tk.W, pady=(4, 0))
-            e = tk.Entry(case_inner, textvariable=var, bg=BG_CARD, fg=TEXT_PRIMARY,
+        fields = [("Case ID", self.case_id_var, 12),
+                  ("Investigator", self.investigator_var, 14),
+                  ("Target", self.target_var, 14)]
+
+        for label_text, var, width in fields:
+            f = tk.Frame(topbar, bg=BG_PANEL)
+            f.pack(side=tk.LEFT, padx=(0, 12))
+            tk.Label(f, text=label_text, bg=BG_PANEL, fg=TEXT_SECONDARY,
+                     font=("Segoe UI", 8)).pack(anchor=tk.W)
+            e = tk.Entry(f, textvariable=var, bg=BG_INPUT, fg=TEXT_PRIMARY,
                          insertbackground=TEXT_PRIMARY, font=("Segoe UI", 10),
-                         relief=tk.FLAT, highlightthickness=1,
+                         relief=tk.FLAT, width=width, highlightthickness=1,
                          highlightcolor=ACCENT, highlightbackground=BORDER)
-            e.pack(fill=tk.X, pady=(2, 0), ipady=3)
+            e.pack(ipady=2)
 
-        # Separator
-        tk.Frame(sb, bg=BORDER, height=1).pack(fill=tk.X, padx=16, pady=(12, 8))
+        # Right side: Run button + Hash button
+        btn_frame = tk.Frame(topbar, bg=BG_PANEL)
+        btn_frame.pack(side=tk.RIGHT, padx=16)
 
-        # ── Scrollable Modules Area ──
-        modules_canvas = tk.Canvas(sb, bg=BG_SIDEBAR, highlightthickness=0)
-        modules_scrollbar = ttk.Scrollbar(sb, orient="vertical",
-                                          command=modules_canvas.yview)
-        modules_inner = tk.Frame(modules_canvas, bg=BG_SIDEBAR)
+        self.run_btn = ttk.Button(btn_frame, text="▶  Run Investigation",
+                                  style="Run.TButton",
+                                  command=self._run_investigation)
+        self.run_btn.pack(side=tk.LEFT)
 
-        modules_inner.bind("<Configure>",
-                           lambda e: modules_canvas.configure(
-                               scrollregion=modules_canvas.bbox("all")))
-        modules_canvas.create_window((0, 0), window=modules_inner, anchor="nw",
-                                     width=298)
-        modules_canvas.configure(yscrollcommand=modules_scrollbar.set)
+        ttk.Button(btn_frame, text="🔑 Hash", style="Secondary.TButton",
+                   command=self._hash_file_dialog).pack(side=tk.LEFT, padx=(8, 0))
 
-        modules_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        modules_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Accent line under topbar
+        tk.Frame(self.root, bg=ACCENT, height=2).pack(fill=tk.X)
 
-        # Enable mousewheel scrolling
+    # ── Modules Panel (Left Side) ────────────────────────────────────────────
+    def _build_modules_panel(self, parent):
+        panel = tk.Frame(parent, bg=BG_PANEL, width=270)
+        panel.pack(side=tk.LEFT, fill=tk.Y)
+        panel.pack_propagate(False)
+
+        # Thin right border
+        tk.Frame(panel, bg=BORDER, width=1).pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Scrollable canvas for all module content
+        canvas = tk.Canvas(panel, bg=BG_PANEL, highlightthickness=0, width=254)
+        scrollbar = ttk.Scrollbar(panel, orient="vertical", command=canvas.yview)
+
+        inner = tk.Frame(canvas, bg=BG_PANEL)
+        inner.bind("<Configure>",
+                   lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw", width=254)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(14, 0),
+                    pady=(10, 8))
+
+        # Mousewheel scrolling
         def _on_mousewheel(event):
-            modules_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        modules_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind("<Enter>",
+                    lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>",
+                    lambda e: canvas.unbind_all("<MouseWheel>"))
 
-        self._build_module_checkboxes(modules_inner)
+        # ── CORE COLLECTION ──
+        self._cat_label(inner, "📦 CORE COLLECTION")
 
-        # ── Bottom: Export + Run ──
-        bottom = tk.Frame(sb, bg=BG_SIDEBAR)
-        bottom.pack(fill=tk.X, side=tk.BOTTOM, padx=16, pady=(0, 16))
+        self.mod_processes = tk.BooleanVar(value=True)
+        self.mod_recent = tk.BooleanVar(value=True)
+        self.mod_startup = tk.BooleanVar(value=True)
+        self.mod_usb = tk.BooleanVar(value=True)
+        self.mod_browser = tk.BooleanVar(value=True)
 
-        # Export checkboxes
-        tk.Frame(bottom, bg=BORDER, height=1).pack(fill=tk.X, pady=(0, 10))
-        self._sidebar_category(bottom, "EXPORT OPTIONS", pad_top=0)
+        for text, var in [("Running Processes", self.mod_processes),
+                          ("Recent Files", self.mod_recent),
+                          ("Startup Programs", self.mod_startup),
+                          ("USB Device History", self.mod_usb),
+                          ("Browser History", self.mod_browser)]:
+            ttk.Checkbutton(inner, text=text, variable=var,
+                            style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
 
-        export_inner = tk.Frame(bottom, bg=BG_SIDEBAR)
-        export_inner.pack(fill=tk.X, pady=(0, 10))
+        # Event Logs with browse
+        self.mod_evtx = tk.BooleanVar(value=False)
+        self.evtx_path_var = tk.StringVar()
+
+        ttk.Checkbutton(inner, text="Event Logs (.evtx)",
+                        variable=self.mod_evtx,
+                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+
+        evtx_row = tk.Frame(inner, bg=BG_PANEL)
+        evtx_row.pack(fill=tk.X, padx=(18, 0), pady=(0, 2))
+        tk.Entry(evtx_row, textvariable=self.evtx_path_var, bg=BG_INPUT,
+                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                 font=("Segoe UI", 8), relief=tk.FLAT, highlightthickness=1,
+                 highlightbackground=BORDER, highlightcolor=ACCENT
+                 ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=1)
+        ttk.Button(evtx_row, text="...", style="Secondary.TButton",
+                   command=self._browse_evtx, width=3).pack(side=tk.LEFT,
+                                                              padx=(3, 0))
+
+        self._separator(inner)
+
+        # ── ADVANCED FORENSICS ──
+        self._cat_label(inner, "🔬 ADVANCED FORENSICS")
+
+        self.mod_prefetch = tk.BooleanVar(value=False)
+        self.mod_shimcache = tk.BooleanVar(value=False)
+        self.mod_usn = tk.BooleanVar(value=False)
+        self.mod_vss = tk.BooleanVar(value=False)
+
+        for text, var in [("Prefetch Files ⚡", self.mod_prefetch),
+                          ("ShimCache", self.mod_shimcache),
+                          ("USN Journal ⚡", self.mod_usn),
+                          ("Shadow Copies ⚡", self.mod_vss)]:
+            ttk.Checkbutton(inner, text=text, variable=var,
+                            style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+
+        ttk.Label(inner, text="⚡ = Administrator required",
+                  style="Dim.TLabel").pack(anchor=tk.W, padx=18, pady=(0, 2))
+
+        self._separator(inner)
+
+        # ── THREAT HUNTING ──
+        self._cat_label(inner, "🎯 THREAT HUNTING")
+
+        self.mod_yara = tk.BooleanVar(value=False)
+        self.mod_sigma = tk.BooleanVar(value=False)
+        self.mod_vt = tk.BooleanVar(value=False)
+        self.vt_api_key_var = tk.StringVar()
+
+        ttk.Checkbutton(inner, text="YARA Malware Scan",
+                        variable=self.mod_yara,
+                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+        ttk.Checkbutton(inner, text="Sigma Rules Scan",
+                        variable=self.mod_sigma,
+                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+        ttk.Checkbutton(inner, text="VirusTotal Lookup",
+                        variable=self.mod_vt,
+                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+
+        vt_row = tk.Frame(inner, bg=BG_PANEL)
+        vt_row.pack(fill=tk.X, padx=(18, 0), pady=(0, 2))
+        tk.Label(vt_row, text="API Key:", bg=BG_PANEL, fg=TEXT_DIM,
+                 font=("Segoe UI", 8)).pack(side=tk.LEFT)
+        tk.Entry(vt_row, textvariable=self.vt_api_key_var, bg=BG_INPUT,
+                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                 font=("Segoe UI", 8), relief=tk.FLAT, show="•",
+                 highlightthickness=1, highlightbackground=BORDER,
+                 highlightcolor=ACCENT).pack(side=tk.LEFT, fill=tk.X,
+                                              expand=True, padx=(4, 0), ipady=1)
+
+        self._separator(inner)
+
+        # ── EXPORT OPTIONS ──
+        self._cat_label(inner, "📤 EXPORT")
 
         self.export_pdf = tk.BooleanVar(value=True)
         self.export_json = tk.BooleanVar(value=False)
@@ -247,177 +345,66 @@ class ForensicToolkitGUI:
         for text, var in [("PDF Report", self.export_pdf),
                           ("JSON Timeline", self.export_json),
                           ("CSV Timeline", self.export_csv)]:
-            ttk.Checkbutton(export_inner, text=text, variable=var,
-                            style="Sidebar.TCheckbutton").pack(anchor=tk.W, pady=1)
+            ttk.Checkbutton(inner, text=text, variable=var,
+                            style="Export.TCheckbutton").pack(anchor=tk.W, pady=1)
 
-        # Run button
-        self.run_btn = ttk.Button(bottom, text="▶  Run Investigation",
-                                  style="Run.TButton", command=self._run_investigation)
-        self.run_btn.pack(fill=tk.X, pady=(4, 0), ipady=2)
+        # Footer
+        tk.Label(inner, text=f"{platform.system()} {platform.release()}  •  Python {platform.python_version()}",
+                 bg=BG_PANEL, fg=TEXT_DIM, font=("Segoe UI", 7)
+                 ).pack(side=tk.BOTTOM, anchor=tk.W, pady=(8, 0))
 
-        # Hash file button
-        ttk.Button(bottom, text="🔑  Hash a File...", style="Secondary.TButton",
-                   command=self._hash_file_dialog).pack(fill=tk.X, pady=(6, 0))
+    def _cat_label(self, parent, text):
+        tk.Label(parent, text=text, bg=BG_PANEL, fg=ACCENT,
+                 font=("Segoe UI", 8, "bold")).pack(anchor=tk.W, pady=(6, 3))
 
-    def _sidebar_category(self, parent, text, pad_top=4):
-        tk.Label(parent, text=text, bg=BG_SIDEBAR, fg=ACCENT,
-                 font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, padx=16,
-                                                     pady=(pad_top, 4))
+    def _separator(self, parent):
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, pady=(6, 2))
 
-    def _build_module_checkboxes(self, parent):
-        """Build categorised module checkboxes inside the sidebar."""
-
-        # ── Core Collection ──
-        self._sidebar_category(parent, "📦  CORE COLLECTION")
-
-        self.mod_processes = tk.BooleanVar(value=True)
-        self.mod_recent = tk.BooleanVar(value=True)
-        self.mod_startup = tk.BooleanVar(value=True)
-        self.mod_usb = tk.BooleanVar(value=True)
-        self.mod_browser = tk.BooleanVar(value=True)
-
-        core_checks = [
-            ("Running Processes", self.mod_processes),
-            ("Recent Files", self.mod_recent),
-            ("Startup Programs", self.mod_startup),
-            ("USB Device History", self.mod_usb),
-            ("Browser History", self.mod_browser),
-        ]
-        for text, var in core_checks:
-            ttk.Checkbutton(parent, text=text, variable=var,
-                            style="Sidebar.TCheckbutton").pack(
-                anchor=tk.W, padx=20, pady=2)
-
-        # Event Logs (with file browser)
-        self.mod_evtx = tk.BooleanVar(value=False)
-        self.evtx_path_var = tk.StringVar()
-
-        evtx_frame = tk.Frame(parent, bg=BG_SIDEBAR)
-        evtx_frame.pack(fill=tk.X, padx=20, pady=(2, 0))
-        ttk.Checkbutton(evtx_frame, text="Event Logs (.evtx)",
-                        variable=self.mod_evtx,
-                        style="Sidebar.TCheckbutton").pack(anchor=tk.W)
-
-        evtx_browse = tk.Frame(parent, bg=BG_SIDEBAR)
-        evtx_browse.pack(fill=tk.X, padx=28, pady=(0, 4))
-        e = tk.Entry(evtx_browse, textvariable=self.evtx_path_var, bg=BG_CARD,
-                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                     font=("Segoe UI", 8), relief=tk.FLAT,
-                     highlightthickness=1, highlightbackground=BORDER,
-                     highlightcolor=ACCENT)
-        e.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=2)
-        ttk.Button(evtx_browse, text="...", style="Secondary.TButton",
-                   command=self._browse_evtx, width=3).pack(side=tk.LEFT, padx=(4, 0))
-
-        # Spacer
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=16, pady=(8, 8))
-
-        # ── Advanced Forensics ──
-        self._sidebar_category(parent, "🔬  ADVANCED FORENSICS")
-
-        self.mod_prefetch = tk.BooleanVar(value=False)
-        self.mod_shimcache = tk.BooleanVar(value=False)
-        self.mod_usn = tk.BooleanVar(value=False)
-        self.mod_vss = tk.BooleanVar(value=False)
-
-        adv_checks = [
-            ("Prefetch Files  ⚡", self.mod_prefetch),
-            ("ShimCache (AppCompatCache)", self.mod_shimcache),
-            ("USN Journal  ⚡", self.mod_usn),
-            ("Shadow Copy Recovery  ⚡", self.mod_vss),
-        ]
-        for text, var in adv_checks:
-            ttk.Checkbutton(parent, text=text, variable=var,
-                            style="Sidebar.TCheckbutton").pack(
-                anchor=tk.W, padx=20, pady=2)
-
-        tk.Label(parent, text="⚡ = Requires Administrator", bg=BG_SIDEBAR,
-                 fg=TEXT_DIM, font=("Segoe UI", 8)).pack(anchor=tk.W, padx=28,
-                                                          pady=(0, 4))
-
-        # Spacer
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=16, pady=(8, 8))
-
-        # ── Threat Hunting ──
-        self._sidebar_category(parent, "🎯  THREAT HUNTING")
-
-        self.mod_yara = tk.BooleanVar(value=False)
-        self.mod_sigma = tk.BooleanVar(value=False)
-        self.mod_vt = tk.BooleanVar(value=False)
-        self.vt_api_key_var = tk.StringVar()
-
-        ttk.Checkbutton(parent, text="YARA Malware Scan", variable=self.mod_yara,
-                        style="Sidebar.TCheckbutton").pack(
-            anchor=tk.W, padx=20, pady=2)
-        ttk.Checkbutton(parent, text="Sigma Rules Scan", variable=self.mod_sigma,
-                        style="Sidebar.TCheckbutton").pack(
-            anchor=tk.W, padx=20, pady=2)
-
-        # VirusTotal with API key entry
-        ttk.Checkbutton(parent, text="VirusTotal Lookup", variable=self.mod_vt,
-                        style="Sidebar.TCheckbutton").pack(
-            anchor=tk.W, padx=20, pady=2)
-
-        vt_key_frame = tk.Frame(parent, bg=BG_SIDEBAR)
-        vt_key_frame.pack(fill=tk.X, padx=28, pady=(0, 4))
-        tk.Label(vt_key_frame, text="API Key:", bg=BG_SIDEBAR,
-                 fg=TEXT_SECONDARY, font=("Segoe UI", 8)).pack(side=tk.LEFT)
-        tk.Entry(vt_key_frame, textvariable=self.vt_api_key_var, bg=BG_CARD,
-                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                 font=("Segoe UI", 8), relief=tk.FLAT, show="•",
-                 highlightthickness=1, highlightbackground=BORDER,
-                 highlightcolor=ACCENT).pack(side=tk.LEFT, fill=tk.X,
-                                              expand=True, padx=(4, 0), ipady=2)
-
-    # ── Content Area ──────────────────────────────────────────────────────────
-    def _build_content(self, parent):
-        # Top info bar
-        info_bar = tk.Frame(parent, bg=BG_DARK)
-        info_bar.pack(fill=tk.X, padx=20, pady=(16, 0))
-
-        tk.Label(info_bar, text="Investigation Dashboard", bg=BG_DARK,
-                 fg=TEXT_PRIMARY, font=("Segoe UI", 14, "bold")).pack(
-            side=tk.LEFT)
-
-        self.status_var = tk.StringVar(value="Ready")
-        self.status_label = tk.Label(info_bar, textvariable=self.status_var,
-                                     bg=BG_DARK, fg=TEXT_SECONDARY,
-                                     font=("Segoe UI", 10))
-        self.status_label.pack(side=tk.RIGHT)
+    # ── Dashboard (Right Side) ───────────────────────────────────────────────
+    def _build_dashboard(self, parent):
+        dash = ttk.Frame(parent)
+        dash.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # ── Progress Bar ──
         self.progress_var = tk.DoubleVar(value=0)
         self.progress_bar = ttk.Progressbar(
-            parent, variable=self.progress_var, maximum=100,
+            dash, variable=self.progress_var, maximum=100,
             style="Green.Horizontal.TProgressbar")
-        self.progress_bar.pack(fill=tk.X, padx=20, pady=(10, 0))
+        self.progress_bar.pack(fill=tk.X, padx=16, pady=(10, 0))
 
-        # ── Stats Dashboard (4 cards) ──
-        self.stats_frame = tk.Frame(parent, bg=BG_DARK)
-        self.stats_frame.pack(fill=tk.X, padx=20, pady=(12, 0))
+        # ── Status text ──
+        status_row = tk.Frame(dash, bg=BG_DARK)
+        status_row.pack(fill=tk.X, padx=16, pady=(4, 0))
+        self.status_var = tk.StringVar(value="Ready — select modules and click Run Investigation")
+        tk.Label(status_row, textvariable=self.status_var, bg=BG_DARK,
+                 fg=TEXT_SECONDARY, font=("Segoe UI", 9)).pack(side=tk.LEFT)
+
+        # ── Stats Cards ──
+        stats_frame = tk.Frame(dash, bg=BG_DARK)
+        stats_frame.pack(fill=tk.X, padx=16, pady=(8, 0))
 
         self.stat_cards = {}
-        stats_config = [
-            ("artifacts", "Evidence Items", "0", "StatValue.TLabel"),
-            ("timeline", "Timeline Events", "0", "StatValue.TLabel"),
+        cards_config = [
+            ("artifacts", "Evidence Items", "0", "StatVal.TLabel"),
+            ("timeline", "Timeline Events", "0", "StatVal.TLabel"),
             ("alerts", "Alerts", "0", "StatGreen.TLabel"),
-            ("status", "Status", "Ready", "StatValue.TLabel"),
+            ("modules", "Modules", "0 / 0", "StatVal.TLabel"),
         ]
-        for i, (key, label, default, style) in enumerate(stats_config):
-            card = tk.Frame(self.stats_frame, bg=BG_CARD, highlightthickness=1,
+        for i, (key, label, default, style) in enumerate(cards_config):
+            card = tk.Frame(stats_frame, bg=BG_CARD, highlightthickness=1,
                             highlightbackground=BORDER)
-            card.grid(row=0, column=i, padx=(0, 8) if i < 3 else 0,
+            card.grid(row=0, column=i, padx=(0, 6) if i < 3 else 0,
                       sticky="nsew")
-            self.stats_frame.columnconfigure(i, weight=1)
+            stats_frame.columnconfigure(i, weight=1)
 
             val_lbl = ttk.Label(card, text=default, style=style)
-            val_lbl.pack(pady=(12, 2))
-            ttk.Label(card, text=label, style="StatLabel.TLabel").pack(pady=(0, 10))
+            val_lbl.pack(pady=(10, 1))
+            ttk.Label(card, text=label, style="StatLbl.TLabel").pack(pady=(0, 8))
             self.stat_cards[key] = val_lbl
 
-        # ── Notebook (Log + Timeline + Module Status) ──
-        self.notebook = ttk.Notebook(parent)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=(12, 16))
+        # ── Notebook ──
+        self.notebook = ttk.Notebook(dash)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=16, pady=(10, 12))
 
         # Log tab
         log_frame = ttk.Frame(self.notebook)
@@ -425,15 +412,15 @@ class ForensicToolkitGUI:
 
         self.log_text = scrolledtext.ScrolledText(
             log_frame, bg=BG_CARD, fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-            font=("Cascadia Code", 10), relief=tk.FLAT, wrap=tk.WORD,
+            font=("Cascadia Code", 9), relief=tk.FLAT, wrap=tk.WORD,
             state=tk.DISABLED, borderwidth=0
         )
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
         self.log_text.tag_config("info", foreground=ACCENT_GREEN)
         self.log_text.tag_config("warn", foreground=ACCENT_AMBER)
         self.log_text.tag_config("error", foreground=ACCENT_RED)
         self.log_text.tag_config("header", foreground=ACCENT,
-                                 font=("Cascadia Code", 10, "bold"))
+                                 font=("Cascadia Code", 9, "bold"))
 
         # Timeline tab
         timeline_frame = ttk.Frame(self.notebook)
@@ -446,34 +433,34 @@ class ForensicToolkitGUI:
         self.timeline_tree.heading("type", text="Type")
         self.timeline_tree.heading("source", text="Source")
         self.timeline_tree.heading("event", text="Event")
-        self.timeline_tree.column("time", width=180, minwidth=150)
-        self.timeline_tree.column("type", width=100, minwidth=80)
-        self.timeline_tree.column("source", width=100, minwidth=80)
-        self.timeline_tree.column("event", width=400, minwidth=200)
+        self.timeline_tree.column("time", width=160, minwidth=130)
+        self.timeline_tree.column("type", width=90, minwidth=70)
+        self.timeline_tree.column("source", width=90, minwidth=70)
+        self.timeline_tree.column("event", width=350, minwidth=200)
 
         vsb = ttk.Scrollbar(timeline_frame, orient="vertical",
                             command=self.timeline_tree.yview)
         self.timeline_tree.configure(yscrollcommand=vsb.set)
         self.timeline_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                                padx=(4, 0), pady=4)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y, pady=4, padx=(0, 4))
+                                padx=(3, 0), pady=3)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y, pady=3, padx=(0, 3))
 
         # Module Status tab
-        status_frame = ttk.Frame(self.notebook)
-        self.notebook.add(status_frame, text="  📊 Module Status  ")
+        status_tab = ttk.Frame(self.notebook)
+        self.notebook.add(status_tab, text="  📊 Module Status  ")
 
-        cols_s = ("module", "status", "count", "time_taken")
-        self.status_tree = ttk.Treeview(status_frame, columns=cols_s,
+        cols_s = ("module", "status", "count", "duration")
+        self.status_tree = ttk.Treeview(status_tab, columns=cols_s,
                                         show="headings")
         self.status_tree.heading("module", text="Module")
         self.status_tree.heading("status", text="Status")
         self.status_tree.heading("count", text="Items Found")
-        self.status_tree.heading("time_taken", text="Duration")
-        self.status_tree.column("module", width=200)
+        self.status_tree.heading("duration", text="Duration")
+        self.status_tree.column("module", width=180)
         self.status_tree.column("status", width=100)
         self.status_tree.column("count", width=100)
-        self.status_tree.column("time_taken", width=100)
-        self.status_tree.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.status_tree.column("duration", width=100)
+        self.status_tree.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _log(self, msg, tag="info"):
@@ -483,7 +470,6 @@ class ForensicToolkitGUI:
         self.log_text.configure(state=tk.DISABLED)
 
     def _update_stat(self, key, value, style=None):
-        """Thread-safe stat card update."""
         def _do():
             self.stat_cards[key].configure(text=str(value))
             if style:
@@ -495,9 +481,9 @@ class ForensicToolkitGUI:
 
     def _add_module_status(self, module, status, count, duration):
         def _do():
-            emoji = "✓" if status == "Done" else ("⏭" if status == "Skipped" else "✗")
+            icon = "✓" if status == "Done" else ("⏭" if status == "Skipped" else "✗")
             self.status_tree.insert("", tk.END,
-                                    values=(module, f"{emoji} {status}",
+                                    values=(module, f"{icon} {status}",
                                             str(count), f"{duration:.1f}s"))
         self.root.after(0, _do)
 
@@ -537,7 +523,7 @@ class ForensicToolkitGUI:
         self.status_var.set("⏳ Investigation running...")
         self._update_progress(0)
 
-        # Clear previous module status
+        # Clear previous
         for item in self.status_tree.get_children():
             self.status_tree.delete(item)
 
@@ -553,7 +539,8 @@ class ForensicToolkitGUI:
                 os.remove(db_path)
 
             db = DBManager(db_path)
-            db.insert_case_metadata(case_id, investigator, "Forensic Investigation", target)
+            db.insert_case_metadata(case_id, investigator,
+                                    "Forensic Investigation", target)
             self.db = db
             self.case_id = case_id
 
@@ -563,37 +550,41 @@ class ForensicToolkitGUI:
             self._log("=" * 55, "header")
             self._log("  TRIAGEHOUND — Investigation Started", "header")
             self._log("=" * 55, "header")
-            self._log(f"  Case: {case_id}  |  Investigator: {investigator}  |  Target: {target}")
+            self._log(f"  Case: {case_id}  |  Investigator: {investigator}"
+                      f"  |  Target: {target}")
             self._log("")
 
-            # Calculate progress steps
+            # Build module list for progress tracking
             modules = []
-            if self.mod_processes.get(): modules.append("processes")
-            if self.mod_recent.get(): modules.append("recent")
-            if self.mod_startup.get(): modules.append("startup")
-            if self.mod_usb.get(): modules.append("usb")
-            if self.mod_browser.get(): modules.append("browser")
-            if self.mod_evtx.get(): modules.append("evtx")
-            if self.mod_prefetch.get(): modules.append("prefetch")
-            if self.mod_shimcache.get(): modules.append("shimcache")
-            if self.mod_usn.get(): modules.append("usn")
-            if self.mod_vss.get(): modules.append("vss")
-            if self.mod_yara.get(): modules.append("yara")
-            if self.mod_sigma.get(): modules.append("sigma")
-            if self.mod_vt.get(): modules.append("vt")
-            modules.append("timeline")  # always runs
+            if self.mod_processes.get():  modules.append("processes")
+            if self.mod_recent.get():     modules.append("recent")
+            if self.mod_startup.get():    modules.append("startup")
+            if self.mod_usb.get():        modules.append("usb")
+            if self.mod_browser.get():    modules.append("browser")
+            if self.mod_evtx.get():       modules.append("evtx")
+            if self.mod_prefetch.get():   modules.append("prefetch")
+            if self.mod_shimcache.get():  modules.append("shimcache")
+            if self.mod_usn.get():        modules.append("usn")
+            if self.mod_vss.get():        modules.append("vss")
+            if self.mod_yara.get():       modules.append("yara")
+            if self.mod_sigma.get():      modules.append("sigma")
+            if self.mod_vt.get():         modules.append("vt")
+            modules.append("timeline")
             total_steps = len(modules)
             step = 0
+            completed_modules = 0
 
-            def advance():
-                nonlocal step
+            def advance(name=""):
+                nonlocal step, completed_modules
                 step += 1
+                completed_modules += 1
                 self._update_progress((step / total_steps) * 100)
+                self._update_stat("modules", f"{completed_modules} / {total_steps}")
 
             # ── Processes ──
             if self.mod_processes.get():
                 t0 = datetime.now()
-                self._log("[*] Collecting running processes...")
+                self._log("[*] Collecting running processes...", "header")
                 procs = collect_processes()
                 for p in procs:
                     db.insert_evidence('process', 'psutil',
@@ -608,7 +599,7 @@ class ForensicToolkitGUI:
             # ── Recent files ──
             if self.mod_recent.get():
                 t0 = datetime.now()
-                self._log("[*] Collecting recent files...")
+                self._log("[*] Collecting recent files...", "header")
                 rfiles = collect_recent_files()
                 for rf in rfiles:
                     db.insert_evidence('recent_file', 'Registry',
@@ -623,7 +614,7 @@ class ForensicToolkitGUI:
             # ── Startup entries ──
             if self.mod_startup.get():
                 t0 = datetime.now()
-                self._log("[*] Collecting startup entries...")
+                self._log("[*] Collecting startup entries...", "header")
                 entries = collect_startup_entries()
                 for se in entries:
                     flag = " [SUSPICIOUS]" if se.get('flagged_suspicious') else ""
@@ -634,7 +625,8 @@ class ForensicToolkitGUI:
                 total_artifacts += len(entries)
                 if suspicious > 0:
                     total_alerts += suspicious
-                self._log(f"    ✓ {len(entries)} startup entries ({suspicious} flagged).",
+                self._log(f"    ✓ {len(entries)} startup entries "
+                          f"({suspicious} flagged).",
                           "info" if suspicious == 0 else "warn")
                 self._add_module_status("Startup Programs", "Done", len(entries),
                                         (datetime.now() - t0).total_seconds())
@@ -643,7 +635,7 @@ class ForensicToolkitGUI:
             # ── USB devices ──
             if self.mod_usb.get():
                 t0 = datetime.now()
-                self._log("[*] Collecting USB device history...")
+                self._log("[*] Collecting USB device history...", "header")
                 usb_devs = collect_usb_history()
                 for ud in usb_devs:
                     db.insert_evidence('usb_device', 'Registry',
@@ -658,11 +650,12 @@ class ForensicToolkitGUI:
             # ── Browser history ──
             if self.mod_browser.get():
                 t0 = datetime.now()
-                self._log("[*] Collecting browser history...")
+                self._log("[*] Collecting browser history...", "header")
                 bh = collect_browser_history()
                 for entry in bh:
                     db.insert_evidence('browser_history', 'Browser',
-                                       f"Browser: {entry.get('title', '?')} ({entry.get('browser', '?')})",
+                                       f"Browser: {entry.get('title', '?')} "
+                                       f"({entry.get('browser', '?')})",
                                        entry.get('last_visited'), entry, case_id)
                 total_artifacts += len(bh)
                 self._log(f"    ✓ {len(bh)} browser history entries.", "info")
@@ -675,11 +668,13 @@ class ForensicToolkitGUI:
                 t0 = datetime.now()
                 evtx_path = self.evtx_path_var.get().strip()
                 if evtx_path and os.path.exists(evtx_path):
-                    self._log(f"[*] Parsing event log: {os.path.basename(evtx_path)}...")
+                    self._log(f"[*] Parsing event log: "
+                              f"{os.path.basename(evtx_path)}...", "header")
                     events = parse_evtx(evtx_path)
                     for ev in events:
                         db.insert_evidence('event_log', 'EVTX Parser',
-                                           f"Event ID {ev.get('event_id', '?')}: {ev.get('message', '')}",
+                                           f"Event ID {ev.get('event_id', '?')}: "
+                                           f"{ev.get('message', '')}",
                                            ev.get('timestamp'), ev, case_id)
                     total_artifacts += len(events)
                     self._log(f"    ✓ {len(events)} event log entries.", "info")
@@ -693,18 +688,20 @@ class ForensicToolkitGUI:
             # ── Prefetch ──
             if self.mod_prefetch.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] Parsing Prefetch files...", "header")
                 pf_entries = collect_prefetch()
                 if pf_entries:
                     for pf in pf_entries:
-                        db.insert_evidence('prefetch', 'Prefetch Parser',
-                                           f"Executed: {pf['executable_name']} (x{pf['run_count']}) last at {pf['last_run']}",
-                                           pf['last_run'], pf, case_id)
+                        db.insert_evidence(
+                            'prefetch', 'Prefetch Parser',
+                            f"Executed: {pf['executable_name']} "
+                            f"(x{pf['run_count']}) last at {pf['last_run']}",
+                            pf['last_run'], pf, case_id)
                     total_artifacts += len(pf_entries)
-                    self._log(f"    ✓ {len(pf_entries)} prefetch entries found.", "info")
+                    self._log(f"    ✓ {len(pf_entries)} prefetch entries.", "info")
                 else:
-                    self._log("    ⚠ No prefetch entries found. Try running as Administrator.", "warn")
+                    self._log("    ⚠ No prefetch entries. "
+                              "Try running as Administrator.", "warn")
                 self._add_module_status("Prefetch Files", "Done",
                                         len(pf_entries) if pf_entries else 0,
                                         (datetime.now() - t0).total_seconds())
@@ -713,18 +710,21 @@ class ForensicToolkitGUI:
             # ── USN Journal ──
             if self.mod_usn.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] Parsing USN Journal...", "header")
                 usn_entries = collect_usn_journal()
                 if usn_entries:
                     for entry in usn_entries:
-                        db.insert_evidence('usn_journal', 'USN Journal',
-                                           f"USN: {entry['filename']} [{entry['reason_summary']}]",
-                                           entry['timestamp'], entry, case_id)
+                        db.insert_evidence(
+                            'usn_journal', 'USN Journal',
+                            f"USN: {entry['filename']} "
+                            f"[{entry['reason_summary']}]",
+                            entry['timestamp'], entry, case_id)
                     total_artifacts += len(usn_entries)
-                    self._log(f"    ✓ {len(usn_entries)} USN journal entries collected.", "info")
+                    self._log(f"    ✓ {len(usn_entries)} USN journal entries.",
+                              "info")
                 else:
-                    self._log("    ⚠ No USN entries found. Try running as Administrator.", "warn")
+                    self._log("    ⚠ No USN entries. "
+                              "Try running as Administrator.", "warn")
                 self._add_module_status("USN Journal", "Done",
                                         len(usn_entries) if usn_entries else 0,
                                         (datetime.now() - t0).total_seconds())
@@ -733,16 +733,18 @@ class ForensicToolkitGUI:
             # ── ShimCache ──
             if self.mod_shimcache.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] Parsing ShimCache...", "header")
                 shim_entries = collect_shimcache()
                 if shim_entries:
                     for entry in shim_entries:
-                        db.insert_evidence('shimcache', 'ShimCache',
-                                           f"ShimCache: {os.path.basename(entry['executable_path'])} (modified: {entry['last_modified']})",
-                                           entry['last_modified'], entry, case_id)
+                        db.insert_evidence(
+                            'shimcache', 'ShimCache',
+                            f"ShimCache: {os.path.basename(entry['executable_path'])} "
+                            f"(modified: {entry['last_modified']})",
+                            entry['last_modified'], entry, case_id)
                     total_artifacts += len(shim_entries)
-                    self._log(f"    ✓ {len(shim_entries)} ShimCache entries found.", "info")
+                    self._log(f"    ✓ {len(shim_entries)} ShimCache entries.",
+                              "info")
                 else:
                     self._log("    ⚠ No ShimCache entries found.", "warn")
                 self._add_module_status("ShimCache", "Done",
@@ -753,59 +755,64 @@ class ForensicToolkitGUI:
             # ── VSS ──
             if self.mod_vss.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] Scanning Volume Shadow Copies...", "header")
                 vss_results = collect_vss_info()
                 if vss_results:
                     for vss in vss_results:
-                        db.insert_evidence('vss', 'VSS Extractor',
-                                           f"Shadow Copy: {vss['creation_time']} ({len(vss['artifacts_found'])} artifacts)",
-                                           vss['creation_time'], vss, case_id)
+                        db.insert_evidence(
+                            'vss', 'VSS Extractor',
+                            f"Shadow Copy: {vss['creation_time']} "
+                            f"({len(vss['artifacts_found'])} artifacts)",
+                            vss['creation_time'], vss, case_id)
                     total_artifacts += len(vss_results)
-                    self._log(f"    ✓ {len(vss_results)} shadow copies scanned.", "info")
+                    self._log(f"    ✓ {len(vss_results)} shadow copies.", "info")
                 else:
-                    self._log("    ⚠ No shadow copies found. Try running as Administrator.", "warn")
+                    self._log("    ⚠ No shadow copies found. "
+                              "Try running as Administrator.", "warn")
                 self._add_module_status("Shadow Copies", "Done",
                                         len(vss_results) if vss_results else 0,
                                         (datetime.now() - t0).total_seconds())
                 advance()
 
-            # ── YARA Malware Scan ──
+            # ── YARA ──
             if self.mod_yara.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] YARA Malware Scan...", "header")
                 compiled = compile_rules('rules')
                 yara_hits = 0
                 if compiled:
-                    scan_targets = [se['command'] for se in entries
-                                    if os.path.isfile(se.get('command', ''))] \
-                        if self.mod_startup.get() else []
-                    self._log(f"    Scanning {len(scan_targets)} startup executables...")
+                    scan_targets = []
+                    if self.mod_startup.get():
+                        scan_targets = [se['command'] for se in entries
+                                        if os.path.isfile(se.get('command', ''))]
+                    self._log(f"    Scanning {len(scan_targets)} executables...")
                     for target_path in scan_targets:
                         matches = scan_file(compiled, target_path)
                         for m in matches:
                             yara_hits += 1
-                            severity_tag = f"[{m['severity']}]" if m.get('severity') else ""
-                            self._log(f"    [!!] MATCH: {m['rule']} {severity_tag} in {os.path.basename(target_path)}", "error")
-                            db.insert_evidence('yara_match', 'YARA Scanner',
-                                               f"YARA Hit: {m['rule']} ({m['description']}) in {os.path.basename(target_path)}",
-                                               None, m, case_id)
+                            self._log(
+                                f"    [!!] MATCH: {m['rule']} "
+                                f"[{m.get('severity', '?')}] "
+                                f"in {os.path.basename(target_path)}", "error")
+                            db.insert_evidence(
+                                'yara_match', 'YARA Scanner',
+                                f"YARA Hit: {m['rule']} ({m['description']}) "
+                                f"in {os.path.basename(target_path)}",
+                                None, m, case_id)
                     total_alerts += yara_hits
                     if yara_hits == 0:
                         self._log("    ✓ No malware signatures detected.", "info")
                     else:
-                        self._log(f"    [!!] {yara_hits} YARA rule match(es) detected!", "error")
+                        self._log(f"    [!!] {yara_hits} YARA match(es)!", "error")
                 else:
-                    self._log("    ⚠ No YARA rules found in rules/ directory.", "warn")
+                    self._log("    ⚠ No YARA rules in rules/ directory.", "warn")
                 self._add_module_status("YARA Scan", "Done", yara_hits,
                                         (datetime.now() - t0).total_seconds())
                 advance()
 
-            # ── Sigma Rules Scan ──
+            # ── Sigma ──
             if self.mod_sigma.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] Sigma Rules Scan...", "header")
                 evtx_path = self.evtx_path_var.get().strip()
                 sigma_count = 0
@@ -816,27 +823,29 @@ class ForensicToolkitGUI:
                         sigma_alerts = match_events(sigma_rules, all_events)
                         sigma_count = len(sigma_alerts)
                         for alert in sigma_alerts:
-                            db.insert_evidence('sigma_alert', 'Sigma Engine',
-                                               f"Sigma Alert: {alert['rule_title']} [{alert['rule_level'].upper()}]",
-                                               alert['matched_event'].get('timestamp'), alert, case_id)
-                            self._log(f"    [!!] SIGMA: {alert['rule_title']} [{alert['rule_level'].upper()}]", "error")
+                            db.insert_evidence(
+                                'sigma_alert', 'Sigma Engine',
+                                f"Sigma: {alert['rule_title']} "
+                                f"[{alert['rule_level'].upper()}]",
+                                alert['matched_event'].get('timestamp'),
+                                alert, case_id)
+                            self._log(
+                                f"    [!!] SIGMA: {alert['rule_title']} "
+                                f"[{alert['rule_level'].upper()}]", "error")
                         total_alerts += sigma_count
                         if not sigma_alerts:
-                            self._log("    ✓ No Sigma rule matches found.", "info")
-                        else:
-                            self._log(f"    [!!] {sigma_count} Sigma alert(s) triggered!", "error")
+                            self._log("    ✓ No Sigma matches.", "info")
                     else:
-                        self._log("    ⚠ No Sigma rules found in sigma_rules/ directory.", "warn")
+                        self._log("    ⚠ No Sigma rules in sigma_rules/.", "warn")
                 else:
-                    self._log("    ⚠ Sigma scan requires an Event Log (.evtx) file.", "warn")
+                    self._log("    ⚠ Sigma scan requires .evtx file.", "warn")
                 self._add_module_status("Sigma Rules", "Done", sigma_count,
                                         (datetime.now() - t0).total_seconds())
                 advance()
 
-            # ── VirusTotal Lookups ──
+            # ── VirusTotal ──
             if self.mod_vt.get():
                 t0 = datetime.now()
-                self._log("")
                 self._log("[*] VirusTotal Hash Lookups...", "header")
                 api_key = self.vt_api_key_var.get().strip()
                 vt_count = 0
@@ -848,25 +857,30 @@ class ForensicToolkitGUI:
                             cmd = se.get('command', '')
                             if os.path.isfile(cmd):
                                 result = compute_hash(cmd)
-                                vt_targets.append((os.path.basename(cmd), result['sha256']))
-                    self._log(f"    Checking {len(vt_targets)} hashes (rate limited)...", "info")
+                                vt_targets.append(
+                                    (os.path.basename(cmd), result['sha256']))
+                    self._log(f"    Checking {len(vt_targets)} hashes...")
                     def vt_cb(label, result):
                         if result.get('is_malicious'):
-                            self._log(f"    [!!] MALICIOUS: {label} — {result['detection_ratio']}", "error")
+                            self._log(f"    [!!] MALICIOUS: {label} — "
+                                      f"{result['detection_ratio']}", "error")
                         elif result.get('status') == 'found':
-                            self._log(f"    [OK] {label} — {result['detection_ratio']}", "info")
+                            self._log(f"    [OK] {label} — "
+                                      f"{result['detection_ratio']}", "info")
                         else:
-                            self._log(f"    [--] {label} — {result.get('status', 'unknown')}", "info")
+                            self._log(f"    [--] {label} — "
+                                      f"{result.get('status', 'unknown')}", "info")
                     vt_results = vt_batch_check(vt_targets, api_key, callback=vt_cb)
                     for label, result in vt_results:
                         db.insert_evidence('virustotal', 'VirusTotal API',
-                                           f"VT: {label} — {result['detection_ratio']}",
+                                           f"VT: {label} — "
+                                           f"{result['detection_ratio']}",
                                            None, result, case_id)
                         if result.get('is_malicious'):
                             vt_count += 1
                     total_alerts += vt_count
                 else:
-                    self._log("    ⚠ No API key provided. Enter your VirusTotal API key.", "warn")
+                    self._log("    ⚠ No API key provided.", "warn")
                 self._add_module_status("VirusTotal", "Done", vt_count,
                                         (datetime.now() - t0).total_seconds())
                 advance()
@@ -876,22 +890,20 @@ class ForensicToolkitGUI:
             self._log("")
             self._log("[*] Generating timeline...", "header")
             self.timeline_data = generate_timeline(db_path, case_id)
-            self._log(f"    ✓ {len(self.timeline_data)} timestamped events in timeline.", "info")
-            self._add_module_status("Timeline Generator", "Done",
+            self._log(f"    ✓ {len(self.timeline_data)} timeline events.", "info")
+            self._add_module_status("Timeline", "Done",
                                     len(self.timeline_data),
                                     (datetime.now() - t0).total_seconds())
             advance()
 
-            # Update dashboard stats
+            # Update dashboard
             self._update_stat("artifacts", f"{total_artifacts:,}")
             self._update_stat("timeline", f"{len(self.timeline_data):,}")
             if total_alerts > 0:
                 self._update_stat("alerts", str(total_alerts), "StatRed.TLabel")
             else:
                 self._update_stat("alerts", "0", "StatGreen.TLabel")
-            self._update_stat("status", "Complete", "StatGreen.TLabel")
 
-            # Populate timeline tree
             self.root.after(0, self._populate_timeline)
 
             # ── Exports ──
@@ -903,8 +915,8 @@ class ForensicToolkitGUI:
                     'investigator_name': investigator,
                     'target_system': target
                 }
-                generate_pdf_report(case_info, self.timeline_data, report_path,
-                                    db_manager=db)
+                generate_pdf_report(case_info, self.timeline_data,
+                                    report_path, db_manager=db)
                 self._log(f"    ✓ PDF report: {report_path}", "info")
 
             if self.export_json.get():
@@ -915,27 +927,29 @@ class ForensicToolkitGUI:
             if self.export_csv.get():
                 csv_path = f"timeline_{case_id}.csv"
                 export_to_csv(self.timeline_data, csv_path)
-                self._log(f"    ✓ CSV export:  {csv_path}", "info")
+                self._log(f"    ✓ CSV export: {csv_path}", "info")
 
             # Seal
             if self.export_pdf.get():
                 self._log("")
-                self._log("[*] Sealing investigation artifacts...", "header")
+                self._log("[*] Sealing artifacts...", "header")
                 sp, sd = seal_report(report_path, db_path, case_id)
                 for lbl, info in sd['artifacts'].items():
                     if info.get('sha256'):
-                        self._log(f"    [{lbl}] SHA256: {info['sha256'][:32]}...", "info")
+                        self._log(f"    [{lbl}] SHA256: "
+                                  f"{info['sha256'][:32]}...", "info")
                 self._log(f"    ✓ Seal manifest: seal_{case_id}.txt", "info")
 
             self._log("")
             self._log("=" * 55, "header")
             self._log("  ✓ Investigation Complete.", "header")
             self._log("=" * 55, "header")
-            self.root.after(0, lambda: self.status_var.set("✓ Investigation complete"))
+            self.root.after(0, lambda: self.status_var.set(
+                "✓ Investigation complete"))
 
         except Exception as e:
             self._log(f"\n[ERROR] {e}", "error")
-            self._update_stat("status", "Error", "StatRed.TLabel")
+            self._update_stat("modules", "Error", "StatRed.TLabel")
             self.root.after(0, lambda: self.status_var.set(f"Error: {e}"))
 
         finally:
@@ -949,7 +963,7 @@ class ForensicToolkitGUI:
                 ev.get('time', ''), ev.get('type', ''),
                 ev.get('source', ''), ev.get('event', '')
             ))
-        self.notebook.select(1)  # Switch to Timeline tab
+        self.notebook.select(1)
 
 
 def main():
