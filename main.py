@@ -297,6 +297,24 @@ def main():
     else:
         print("  -> Skipping VirusTotal (use --vt-api-key to enable).")
 
+    # ── Phase 1 & 2: V2.0 Engines ─────────────────────────────
+    print()
+    print("[*] Running V2.0 Evidence Normalization Layer...")
+    from modules.normalization import NormalizationEngine
+    norm_engine = NormalizationEngine(db)
+    norm_engine.normalize_case(args.case)
+
+    print("[*] Running V2.0 Cross-Artifact Correlation Engine...")
+    from modules.correlation_engine import CorrelationEngine
+    corr_engine = CorrelationEngine(db)
+    corr_engine.run_correlation(args.case)
+    print("    Correlation complete.")
+
+    # ── Phase 3: Confidence Engine ────────────────────────────
+    print("[*] Running V2.0 Endpoint Compromise Confidence Engine...")
+    from modules.confidence_engine import ConfidenceEngine
+    conf_engine = ConfidenceEngine(db)
+    confidence_result = conf_engine.calculate_score(args.case)
 
     # ── Generate Timeline ─────────────────────────────────────
     print()

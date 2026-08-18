@@ -114,3 +114,82 @@ class DBManager:
         conn.close()
         return {row[0]: row[1] for row in rows}
 
+    # -- TriageHound v2.0 Methods ----------------------------------------------
+    def insert_entity(self, entity_id, entity_type, name, path, timestamp, evidence_id, raw_attributes_dict):
+        raw_attributes = json.dumps(raw_attributes_dict) if raw_attributes_dict else "{}"
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO entities 
+            (entity_id, entity_type, name, path, timestamp, evidence_id, raw_attributes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (entity_id, entity_type, name, path, timestamp, evidence_id, raw_attributes))
+        conn.commit()
+        conn.close()
+
+    def insert_finding(self, finding_id, title, description, severity, confidence_contribution, timestamp):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO findings 
+            (finding_id, title, description, severity, confidence_contribution, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (finding_id, title, description, severity, confidence_contribution, timestamp))
+        conn.commit()
+        conn.close()
+
+    def insert_correlation(self, finding_id, entity_id=None, evidence_id=None):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO correlations 
+            (finding_id, entity_id, evidence_id)
+            VALUES (?, ?, ?)
+        """, (finding_id, entity_id, evidence_id))
+        conn.commit()
+        conn.close()
+
+    def get_all_entities(self, case_id=None):
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        if case_id:
+            # Join with evidence_items to filter by case_id
+            cursor.execute("""
+                SELECT e.* FROM entities e
+                JOIN evidence_items i ON e.evidence_id = i.id
+                WHERE i.case_id = ?
+            """, (case_id,))
+        else:
+            cursor.execute("SELECT * FROM entities")
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    def get_all_findings(self, case_id):
+        """Return all findings linked to a case via the correlations → entities → evidence_items chain."""
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT f.* FROM findings f
+            JOIN correlations c ON f.finding_id = c.finding_id
+            JOIN evidence_items i ON c.evidence_id = i.id
+            WHERE i.case_id = ?
+        """, (case_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    def insert_confidence_score(self, case_id, score, severity):
+        from datetime import datetime
+        calculated_at = datetime.now().isoformat()
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO confidence_scores
+            (case_id, score, severity, calculated_at)
+            VALUES (?, ?, ?, ?)
+        """, (case_id, score, severity, calculated_at))
+        conn.commit()
+        conn.close()
