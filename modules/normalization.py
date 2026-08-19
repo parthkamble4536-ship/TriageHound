@@ -12,7 +12,11 @@ class NormalizationEngine:
     def normalize_case(self, case_id):
         evidence_items = self.db.get_all_evidence(case_id)
         for item in evidence_items:
-            self.normalize_evidence(item)
+            try:
+                self.normalize_evidence(item)
+            except Exception:
+                # Skip malformed evidence records without crashing the pipeline
+                pass
             
     def normalize_evidence(self, item):
         artifact_type = item['artifact_type']

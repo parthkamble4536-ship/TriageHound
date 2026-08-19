@@ -299,40 +299,63 @@ def main():
 
     # ── Phase 1 & 2: V2.0 Engines ─────────────────────────────
     print()
+    from modules.metrics import MetricsCollector
+    metrics = MetricsCollector()
+
     print("[*] Running V2.0 Evidence Normalization Layer...")
     from modules.normalization import NormalizationEngine
     norm_engine = NormalizationEngine(db)
+    metrics.start("Normalization")
     norm_engine.normalize_case(args.case)
+    metrics.stop("Normalization")
 
     print("[*] Running V2.0 Cross-Artifact Correlation Engine...")
     from modules.correlation_engine import CorrelationEngine
     corr_engine = CorrelationEngine(db)
+    metrics.start("Correlation")
     corr_engine.run_correlation(args.case)
+    metrics.stop("Correlation")
     print("    Correlation complete.")
 
     # ── Phase 3: Confidence Engine ────────────────────────────
     print("[*] Running V2.0 Endpoint Compromise Confidence Engine...")
     from modules.confidence_engine import ConfidenceEngine
     conf_engine = ConfidenceEngine(db)
+    metrics.start("Confidence")
     confidence_result = conf_engine.calculate_score(args.case)
+    metrics.stop("Confidence")
 
     # ── Phase 4: Anti-Forensics Detection ─────────────────────
     print("[*] Running V2.0 Anti-Forensics Detection Engine...")
     from modules.antiforensics import AntiForensicsEngine
     af_engine = AntiForensicsEngine(db)
+    metrics.start("Anti-Forensics")
     af_alerts = af_engine.run_detection(args.case)
+    metrics.stop("Anti-Forensics")
 
     # ── Phase 5: Attack Chain Reconstruction ──────────────────
     print("[*] Running V2.0 Attack Chain Reconstruction...")
     from modules.attack_chain import AttackChainEngine
     chain_engine = AttackChainEngine(db)
+    metrics.start("Attack Chain")
     attack_chain = chain_engine.reconstruct(args.case)
+    metrics.stop("Attack Chain")
 
     # ── Phase 6: Investigation Findings Engine ────────────────
     print("[*] Running V2.0 Investigation Findings Engine...")
     from modules.findings_engine import FindingsEngine
     findings_engine = FindingsEngine(db)
+    metrics.start("Findings")
     investigation_summary = findings_engine.generate_summary(args.case, confidence_result)
+    metrics.stop("Findings")
+
+    # Record counters
+    metrics.set_counter("Entities", len(db.get_all_entities(args.case)))
+    metrics.set_counter("Findings", investigation_summary['total_findings'])
+    metrics.set_counter("AF Alerts", investigation_summary['anti_forensics_count'])
+    metrics.set_counter("Chain Links", investigation_summary['attack_chain_links'])
+
+    metrics.report()
 
     # ── Generate Timeline ─────────────────────────────────────
     print()

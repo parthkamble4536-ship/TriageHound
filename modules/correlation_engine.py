@@ -14,8 +14,14 @@ class CorrelationEngine:
         if not entities:
             return
 
-        self._rule_powershell_execution(entities)
-        self._rule_executable_dropped(entities)
+        try:
+            self._rule_powershell_execution(entities)
+        except Exception:
+            pass
+        try:
+            self._rule_executable_dropped(entities)
+        except Exception:
+            pass
         # Additional rules (e.g., Persistence, Lateral Movement) will be added in future iterations.
 
     def _rule_powershell_execution(self, entities):

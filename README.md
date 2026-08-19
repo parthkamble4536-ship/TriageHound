@@ -2,7 +2,7 @@
   <h1 align="center">🔍 TriageHound</h1>
   <p align="center">
     <strong>Advanced Digital Forensics & Incident Response Toolkit</strong><br>
-    <em>Collect. Hunt. Prove. Seal.</em>
+    <em>Collect. Correlate. Detect. Reason. Prioritize. Explain.</em>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue?logo=python&logoColor=white" alt="Python">
@@ -59,6 +59,17 @@ Real attackers don't leave evidence lying around. They delete malware, wipe Pref
 | **YARA** | Scans startup executables against malware signature rules (`.yar`) |
 | **Sigma** | Evaluates Windows Event Logs against behavioral detection rules (`.yml`) |
 | **VirusTotal** | Hashes processes/startup files → queries 70+ AV engines via API |
+
+### v2.0 Intelligence Engines (NEW)
+
+| Engine | What It Does |
+|---|---|
+| **Evidence Normalization** | Standardizes artifacts into unified `Process` and `File` entities |
+| **Cross-Artifact Correlation** | Links related evidence across Prefetch, ShimCache, USN, and Event Logs |
+| **Confidence Scoring** | Assigns an explainable 0-100 Endpoint Compromise Confidence Score |
+| **Anti-Forensics Detection** | Detects evidence tampering: missing executables, rapid deletions, log clearing |
+| **Attack Chain Reconstruction** | Builds a sequential narrative of the attack (e.g., PowerShell → Executable → Persistence) |
+| **Investigation Findings** | Consolidates all intelligence into structured findings with recommended actions |
 
 ### Core Evidence Collection
 
