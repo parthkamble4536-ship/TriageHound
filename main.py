@@ -322,6 +322,12 @@ def main():
     af_engine = AntiForensicsEngine(db)
     af_alerts = af_engine.run_detection(args.case)
 
+    # ── Phase 5: Attack Chain Reconstruction ──────────────────
+    print("[*] Running V2.0 Attack Chain Reconstruction...")
+    from modules.attack_chain import AttackChainEngine
+    chain_engine = AttackChainEngine(db)
+    attack_chain = chain_engine.reconstruct(args.case)
+
     # ── Generate Timeline ─────────────────────────────────────
     print()
     print("[*] Generating Timeline...")

@@ -222,3 +222,41 @@ class DBManager:
         rows = [dict(r) for r in cursor.fetchall()]
         conn.close()
         return rows
+
+    def insert_attack_chain(self, chain_id, finding_id, next_finding_id, relationship):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO attack_chains
+            (chain_id, finding_id, next_finding_id, relationship)
+            VALUES (?, ?, ?, ?)
+        """, (chain_id, finding_id, next_finding_id, relationship))
+        conn.commit()
+        conn.close()
+
+    def get_attack_chains(self, case_id):
+        """Return all attack chain links for a case."""
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT ac.* FROM attack_chains ac
+            JOIN findings f ON ac.finding_id = f.finding_id
+            JOIN correlations c ON f.finding_id = c.finding_id
+            JOIN evidence_items i ON c.evidence_id = i.id
+            WHERE i.case_id = ?
+            ORDER BY f.timestamp ASC
+        """, (case_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    def insert_recommendation(self, finding_id, action):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO recommendations (finding_id, action)
+            VALUES (?, ?)
+        """, (finding_id, action))
+        conn.commit()
+        conn.close()
