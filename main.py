@@ -328,6 +328,12 @@ def main():
     chain_engine = AttackChainEngine(db)
     attack_chain = chain_engine.reconstruct(args.case)
 
+    # ── Phase 6: Investigation Findings Engine ────────────────
+    print("[*] Running V2.0 Investigation Findings Engine...")
+    from modules.findings_engine import FindingsEngine
+    findings_engine = FindingsEngine(db)
+    investigation_summary = findings_engine.generate_summary(args.case, confidence_result)
+
     # ── Generate Timeline ─────────────────────────────────────
     print()
     print("[*] Generating Timeline...")
