@@ -193,3 +193,32 @@ class DBManager:
         """, (case_id, score, severity, calculated_at))
         conn.commit()
         conn.close()
+
+    def insert_anti_forensic(self, alert_id, finding_id, description):
+        from datetime import datetime
+        detected_at = datetime.now().isoformat()
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO anti_forensics
+            (alert_id, finding_id, description, detected_at)
+            VALUES (?, ?, ?, ?)
+        """, (alert_id, finding_id, description, detected_at))
+        conn.commit()
+        conn.close()
+
+    def get_anti_forensics(self, case_id):
+        """Return all anti-forensics alerts linked to a case."""
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT af.* FROM anti_forensics af
+            JOIN findings f ON af.finding_id = f.finding_id
+            JOIN correlations c ON f.finding_id = c.finding_id
+            JOIN evidence_items i ON c.evidence_id = i.id
+            WHERE i.case_id = ?
+        """, (case_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows

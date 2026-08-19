@@ -316,6 +316,12 @@ def main():
     conf_engine = ConfidenceEngine(db)
     confidence_result = conf_engine.calculate_score(args.case)
 
+    # ── Phase 4: Anti-Forensics Detection ─────────────────────
+    print("[*] Running V2.0 Anti-Forensics Detection Engine...")
+    from modules.antiforensics import AntiForensicsEngine
+    af_engine = AntiForensicsEngine(db)
+    af_alerts = af_engine.run_detection(args.case)
+
     # ── Generate Timeline ─────────────────────────────────────
     print()
     print("[*] Generating Timeline...")
