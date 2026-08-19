@@ -361,7 +361,8 @@ def main():
         'investigator_name': args.investigator,
         'target_system': args.target
     }
-    generate_pdf_report(case_info, timeline_data, report_path, db_manager=db)
+    generate_pdf_report(case_info, timeline_data, report_path, db_manager=db,
+                        investigation_summary=investigation_summary)
 
     # ── Cryptographic Seal ────────────────────────────────────
     print("[*] Sealing investigation artifacts...")

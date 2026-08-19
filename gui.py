@@ -173,7 +173,7 @@ class ForensicToolkitGUI:
         brand.pack(side=tk.LEFT, padx=(16, 20))
         tk.Label(brand, text="🔍 TriageHound", bg=BG_PANEL, fg=BRAND_CYAN,
                  font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="  v1.0", bg=BG_PANEL, fg=TEXT_DIM,
+        tk.Label(brand, text="  v2.0", bg=BG_PANEL, fg=TEXT_DIM,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, pady=(4, 0))
 
         # Thin vertical separator
@@ -388,8 +388,10 @@ class ForensicToolkitGUI:
         self.stat_cards = {}
         cards_config = [
             ("artifacts", "Evidence Items", "0", "StatVal.TLabel"),
-            ("timeline", "Timeline Events", "0", "StatVal.TLabel"),
+            ("confidence", "Confidence", "--", "StatVal.TLabel"),
+            ("findings", "Findings", "0", "StatVal.TLabel"),
             ("alerts", "Alerts", "0", "StatGreen.TLabel"),
+            ("timeline", "Timeline Events", "0", "StatVal.TLabel"),
             ("modules", "Modules", "0 / 0", "StatVal.TLabel"),
         ]
         for i, (key, label, default, style) in enumerate(cards_config):
@@ -446,6 +448,32 @@ class ForensicToolkitGUI:
         self.timeline_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
                                 padx=(3, 0), pady=3)
         vsb.pack(side=tk.RIGHT, fill=tk.Y, pady=3, padx=(0, 3))
+
+        # Investigation tab (v2.0)
+        invest_frame = ttk.Frame(self.notebook)
+        self.notebook.add(invest_frame, text="  🔍 Investigation  ")
+
+        self.invest_text = scrolledtext.ScrolledText(
+            invest_frame, bg=BG_CARD, fg=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            font=("Cascadia Code", 9), relief=tk.FLAT, wrap=tk.WORD,
+            state=tk.DISABLED, borderwidth=0
+        )
+        self.invest_text.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+        self.invest_text.tag_config("title", foreground=BRAND_CYAN,
+                                    font=("Cascadia Code", 11, "bold"))
+        self.invest_text.tag_config("score_high", foreground=ACCENT_RED,
+                                    font=("Cascadia Code", 14, "bold"))
+        self.invest_text.tag_config("score_med", foreground=ACCENT_AMBER,
+                                    font=("Cascadia Code", 14, "bold"))
+        self.invest_text.tag_config("score_low", foreground=ACCENT_GREEN,
+                                    font=("Cascadia Code", 14, "bold"))
+        self.invest_text.tag_config("finding", foreground=ACCENT,
+                                    font=("Cascadia Code", 9, "bold"))
+        self.invest_text.tag_config("alert", foreground=ACCENT_RED)
+        self.invest_text.tag_config("chain", foreground=ACCENT_AMBER)
+        self.invest_text.tag_config("rec", foreground=ACCENT_GREEN)
+        self.invest_text.tag_config("dim", foreground=TEXT_SECONDARY)
 
         # Module Status tab
         status_tab = ttk.Frame(self.notebook)
@@ -572,6 +600,7 @@ class ForensicToolkitGUI:
             if self.mod_yara.get():       modules.append("yara")
             if self.mod_sigma.get():      modules.append("sigma")
             if self.mod_vt.get():         modules.append("vt")
+            modules.append("v2_engines")
             modules.append("timeline")
             total_steps = len(modules)
             step = 0
@@ -888,6 +917,48 @@ class ForensicToolkitGUI:
                                         (datetime.now() - t0).total_seconds())
                 advance()
 
+            # ── V2.0 Engines ──
+            t0 = datetime.now()
+            self._log("")
+            self._log("[*] Running V2.0 Intelligence Engines...", "header")
+
+            from modules.normalization import NormalizationEngine
+            from modules.correlation_engine import CorrelationEngine
+            from modules.confidence_engine import ConfidenceEngine
+            from modules.antiforensics import AntiForensicsEngine
+            from modules.attack_chain import AttackChainEngine
+            from modules.findings_engine import FindingsEngine
+
+            norm_engine = NormalizationEngine(db)
+            norm_engine.normalize_case(case_id)
+            self._log("    ✓ Evidence normalization complete.", "info")
+
+            corr_engine = CorrelationEngine(db)
+            corr_engine.run_correlation(case_id)
+            self._log("    ✓ Cross-artifact correlation complete.", "info")
+
+            conf_engine = ConfidenceEngine(db)
+            confidence_result = conf_engine.calculate_score(case_id)
+            self._log(f"    ✓ Confidence Score: {confidence_result['score']} / 100 ({confidence_result['severity']})", "info")
+
+            af_engine = AntiForensicsEngine(db)
+            af_alerts = af_engine.run_detection(case_id)
+            self._log(f"    ✓ Anti-forensics: {len(af_alerts)} alert(s).", "info" if not af_alerts else "warn")
+            total_alerts += len(af_alerts)
+
+            chain_engine = AttackChainEngine(db)
+            attack_chain = chain_engine.reconstruct(case_id)
+            self._log(f"    ✓ Attack chain: {len(attack_chain)} link(s).", "info")
+
+            findings_engine = FindingsEngine(db)
+            investigation_summary = findings_engine.generate_summary(case_id, confidence_result)
+            self._log(f"    ✓ Investigation summary: {investigation_summary['total_findings']} finding(s).", "info")
+
+            self._add_module_status("V2.0 Intelligence", "Done",
+                                    investigation_summary['total_findings'],
+                                    (datetime.now() - t0).total_seconds())
+            advance()
+
             # ── Timeline ──
             t0 = datetime.now()
             self._log("")
@@ -902,12 +973,21 @@ class ForensicToolkitGUI:
             # Update dashboard
             self._update_stat("artifacts", f"{total_artifacts:,}")
             self._update_stat("timeline", f"{len(self.timeline_data):,}")
+            self._update_stat("findings", str(investigation_summary['total_findings']))
+
+            # Confidence score stat with colour
+            score = confidence_result['score']
+            sev = confidence_result['severity']
+            score_style = "StatRed.TLabel" if sev == 'HIGH' else ("StatAmber.TLabel" if sev == 'MEDIUM' else "StatGreen.TLabel")
+            self._update_stat("confidence", f"{score}/100", score_style)
+
             if total_alerts > 0:
                 self._update_stat("alerts", str(total_alerts), "StatRed.TLabel")
             else:
                 self._update_stat("alerts", "0", "StatGreen.TLabel")
 
             self.root.after(0, self._populate_timeline)
+            self.root.after(0, lambda: self._populate_investigation(investigation_summary))
 
             # ── Exports ──
             if self.export_pdf.get():
@@ -920,7 +1000,8 @@ class ForensicToolkitGUI:
                     'target_system': target
                 }
                 generate_pdf_report(case_info, self.timeline_data,
-                                    report_path, db_manager=db)
+                                    report_path, db_manager=db,
+                                    investigation_summary=investigation_summary)
                 self._log(f"    ✓ PDF report: {report_path}", "info")
 
             if self.export_json.get():
@@ -967,7 +1048,69 @@ class ForensicToolkitGUI:
                 ev.get('time', ''), ev.get('type', ''),
                 ev.get('source', ''), ev.get('event', '')
             ))
-        self.notebook.select(1)
+        self.notebook.select(2)  # Select Investigation tab
+
+    def _populate_investigation(self, summary):
+        """Populate the Investigation Dashboard tab with v2.0 intelligence."""
+        w = self.invest_text
+        w.configure(state=tk.NORMAL)
+        w.delete('1.0', tk.END)
+
+        # Header
+        w.insert(tk.END, "  INVESTIGATION SUMMARY\n", "title")
+        w.insert(tk.END, "  " + "=" * 50 + "\n\n", "dim")
+
+        # Confidence Score
+        score = summary['confidence_score']
+        sev = summary['confidence_severity']
+        score_tag = "score_high" if sev == 'HIGH' else ("score_med" if sev == 'MEDIUM' else "score_low")
+        w.insert(tk.END, f"  Endpoint Compromise Confidence:  ", "dim")
+        w.insert(tk.END, f"{score} / 100  ({sev})\n\n", score_tag)
+
+        # Stats
+        w.insert(tk.END, f"  Total Findings   : {summary['total_findings']}\n", "dim")
+        w.insert(tk.END, f"  Critical/High    : {summary['critical_findings'] + summary['high_findings']}\n", "dim")
+        w.insert(tk.END, f"  Medium           : {summary['medium_findings']}\n", "dim")
+        w.insert(tk.END, f"  Anti-Forensics   : {summary['anti_forensics_count']} alert(s)\n", "dim")
+        w.insert(tk.END, f"  Attack Chain     : {summary['attack_chain_links']} link(s)\n", "dim")
+        w.insert(tk.END, "\n  " + "=" * 50 + "\n\n", "dim")
+
+        # Confidence Breakdown
+        if summary.get('confidence_breakdown'):
+            w.insert(tk.END, "  CONFIDENCE BREAKDOWN\n", "title")
+            for item in summary['confidence_breakdown']:
+                w.insert(tk.END, f"    +{item['points']:<4}  {item['title']}\n", "finding")
+            w.insert(tk.END, "\n")
+
+        # Findings
+        if summary.get('findings'):
+            w.insert(tk.END, "  INVESTIGATION FINDINGS\n\n", "title")
+            for i, f in enumerate(summary['findings'], 1):
+                w.insert(tk.END, f"  Finding #{i:03d}: {f['title']}\n", "finding")
+                w.insert(tk.END, f"    Severity    : {f['severity']}\n", "dim")
+                w.insert(tk.END, f"    Confidence  : +{f['confidence_contribution']}\n", "dim")
+                sources = ', '.join(f['evidence_sources']) if f['evidence_sources'] else 'N/A'
+                w.insert(tk.END, f"    Evidence    : {sources}\n", "dim")
+                if f.get('recommendation'):
+                    w.insert(tk.END, f"    Action      : {f['recommendation']}\n", "rec")
+                w.insert(tk.END, "\n")
+
+        # Anti-Forensics
+        if summary.get('anti_forensics_alerts'):
+            w.insert(tk.END, "  ANTI-FORENSICS ALERTS\n\n", "title")
+            for af in summary['anti_forensics_alerts']:
+                w.insert(tk.END, f"  [!] {af['description']}\n", "alert")
+            w.insert(tk.END, "\n")
+
+        # Attack Chain
+        if summary.get('attack_chain') and len(summary['attack_chain']) > 0:
+            w.insert(tk.END, "  ATTACK CHAIN\n\n", "title")
+            chains = summary['attack_chain']
+            for chain in chains:
+                w.insert(tk.END, f"    {chain.get('finding_id', '?')}  --[{chain.get('relationship', '?')}]-->  {chain.get('next_finding_id', '?')}\n", "chain")
+            w.insert(tk.END, "\n")
+
+        w.configure(state=tk.DISABLED)
 
 
 def main():
