@@ -60,7 +60,7 @@ Real attackers don't leave evidence lying around. They delete malware, wipe Pref
 | **Sigma** | Evaluates Windows Event Logs against behavioral detection rules (`.yml`) |
 | **VirusTotal** | Hashes processes/startup files → queries 70+ AV engines via API |
 
-### v2.0 Intelligence Engines (NEW)
+### v1.0 Intelligence Engines (NEW)
 
 | Engine | What It Does |
 |---|---|

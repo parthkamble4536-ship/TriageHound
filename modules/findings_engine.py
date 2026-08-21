@@ -1,7 +1,7 @@
 """
 Investigation Findings Engine
 ================================
-Consolidates all v2.0 intelligence (findings, confidence score,
+Consolidates all v1.0 intelligence (findings, confidence score,
 anti-forensics alerts, attack chain, recommendations) into a single
 structured investigation summary.
 

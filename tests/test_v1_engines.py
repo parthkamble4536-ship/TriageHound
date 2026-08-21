@@ -1,9 +1,9 @@
 """
-TriageHound v2.0 — Test Suite & Benchmarks
+TriageHound v1.0 — Test Suite & Benchmarks
 =============================================
-Validates all v2.0 intelligence engines against a synthetic dataset.
+Validates all v1.0 intelligence engines against a synthetic dataset.
 
-Run:  python tests/test_v2_engines.py
+Run:  python tests/test_v1_engines.py
 """
 
 import os
@@ -29,8 +29,8 @@ TEST_DB = "test_v2_engines.db"
 TEST_CASE = "TEST-V2-UNIT"
 
 
-class TestV2Engines(unittest.TestCase):
-    """Integration tests for all v2.0 engines."""
+class TestV1Engines(unittest.TestCase):
+    """Integration tests for all v1.0 engines."""
 
     @classmethod
     def setUpClass(cls):
@@ -223,7 +223,7 @@ class TestV2Engines(unittest.TestCase):
 
     # ── Data Integrity ──────────────────────────────────────────
     def test_07_database_integrity(self):
-        """All v2.0 tables should have data after the full pipeline."""
+        """All v1.0 tables should have data after the full pipeline."""
         conn = sqlite3.connect(TEST_DB)
         cursor = conn.cursor()
 
@@ -242,13 +242,13 @@ class TestV2Engines(unittest.TestCase):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("  TriageHound v2.0 — Test Suite & Benchmarks")
+    print("  TriageHound v1.0 — Test Suite & Benchmarks")
     print("=" * 60)
     print()
 
     # Run tests in order
     loader = unittest.TestLoader()
     loader.sortTestMethodsUsing = lambda x, y: (x > y) - (x < y)
-    suite = loader.loadTestsFromTestCase(TestV2Engines)
+    suite = loader.loadTestsFromTestCase(TestV1Engines)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)

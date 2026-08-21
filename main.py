@@ -297,19 +297,19 @@ def main():
     else:
         print("  -> Skipping VirusTotal (use --vt-api-key to enable).")
 
-    # ── Phase 1 & 2: V2.0 Engines ─────────────────────────────
+    # ── Phase 1 & 2: V1.0 Engines ─────────────────────────────
     print()
     from modules.metrics import MetricsCollector
     metrics = MetricsCollector()
 
-    print("[*] Running V2.0 Evidence Normalization Layer...")
+    print("[*] Running V1.0 Evidence Normalization Layer...")
     from modules.normalization import NormalizationEngine
     norm_engine = NormalizationEngine(db)
     metrics.start("Normalization")
     norm_engine.normalize_case(args.case)
     metrics.stop("Normalization")
 
-    print("[*] Running V2.0 Cross-Artifact Correlation Engine...")
+    print("[*] Running V1.0 Cross-Artifact Correlation Engine...")
     from modules.correlation_engine import CorrelationEngine
     corr_engine = CorrelationEngine(db)
     metrics.start("Correlation")
@@ -318,7 +318,7 @@ def main():
     print("    Correlation complete.")
 
     # ── Phase 3: Confidence Engine ────────────────────────────
-    print("[*] Running V2.0 Endpoint Compromise Confidence Engine...")
+    print("[*] Running V1.0 Endpoint Compromise Confidence Engine...")
     from modules.confidence_engine import ConfidenceEngine
     conf_engine = ConfidenceEngine(db)
     metrics.start("Confidence")
@@ -326,7 +326,7 @@ def main():
     metrics.stop("Confidence")
 
     # ── Phase 4: Anti-Forensics Detection ─────────────────────
-    print("[*] Running V2.0 Anti-Forensics Detection Engine...")
+    print("[*] Running V1.0 Anti-Forensics Detection Engine...")
     from modules.antiforensics import AntiForensicsEngine
     af_engine = AntiForensicsEngine(db)
     metrics.start("Anti-Forensics")
@@ -334,7 +334,7 @@ def main():
     metrics.stop("Anti-Forensics")
 
     # ── Phase 5: Attack Chain Reconstruction ──────────────────
-    print("[*] Running V2.0 Attack Chain Reconstruction...")
+    print("[*] Running V1.0 Attack Chain Reconstruction...")
     from modules.attack_chain import AttackChainEngine
     chain_engine = AttackChainEngine(db)
     metrics.start("Attack Chain")
@@ -342,7 +342,7 @@ def main():
     metrics.stop("Attack Chain")
 
     # ── Phase 6: Investigation Findings Engine ────────────────
-    print("[*] Running V2.0 Investigation Findings Engine...")
+    print("[*] Running V1.0 Investigation Findings Engine...")
     from modules.findings_engine import FindingsEngine
     findings_engine = FindingsEngine(db)
     metrics.start("Findings")

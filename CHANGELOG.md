@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v2.0.0 (2026-08-19)
+## v1.0.0 (2026-08-19)
 
 ### New Features
 - **Evidence Normalization Layer** — Standardizes raw forensic artifacts into unified Process and File entities
@@ -15,17 +15,17 @@
 - **Comprehensive Test Suite** — 7 integration tests with synthetic data and benchmark reporting
 
 ### Improvements
-- Error handling hardened across all v2.0 engines
+- Error handling hardened across all v1.0 engines
 - Pipeline resilience — malformed evidence records are skipped without crashing
 - Updated version branding throughout (GUI, PDF footer, cover page)
-- Updated README with v2.0 features and philosophy
+- Updated README with v1.0 features and philosophy
 
 ### Database
 - New tables: `entities`, `findings`, `correlations`, `confidence_scores`, `anti_forensics`, `attack_chains`, `recommendations`
 
 ---
 
-## v1.0.0 (2026-07-01)
+## v0.9.0 (2026-07-01)
 
 ### Initial Release
 - Core evidence collection (Processes, Recent Files, Startup, USB, Browser History)

@@ -114,7 +114,7 @@ class DBManager:
         conn.close()
         return {row[0]: row[1] for row in rows}
 
-    # -- TriageHound v2.0 Methods ----------------------------------------------
+    # -- TriageHound v1.0 Methods ----------------------------------------------
     def insert_entity(self, entity_id, entity_type, name, path, timestamp, evidence_id, raw_attributes_dict):
         raw_attributes = json.dumps(raw_attributes_dict) if raw_attributes_dict else "{}"
         conn = self.get_connection()

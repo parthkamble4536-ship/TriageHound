@@ -173,7 +173,7 @@ class ForensicToolkitGUI:
         brand.pack(side=tk.LEFT, padx=(16, 20))
         tk.Label(brand, text="🔍 TriageHound", bg=BG_PANEL, fg=BRAND_CYAN,
                  font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="  v2.0", bg=BG_PANEL, fg=TEXT_DIM,
+        tk.Label(brand, text="  v1.0", bg=BG_PANEL, fg=TEXT_DIM,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, pady=(4, 0))
 
         # Thin vertical separator
@@ -449,7 +449,7 @@ class ForensicToolkitGUI:
                                 padx=(3, 0), pady=3)
         vsb.pack(side=tk.RIGHT, fill=tk.Y, pady=3, padx=(0, 3))
 
-        # Investigation tab (v2.0)
+        # Investigation tab (v1.0)
         invest_frame = ttk.Frame(self.notebook)
         self.notebook.add(invest_frame, text="  🔍 Investigation  ")
 
@@ -1051,7 +1051,7 @@ class ForensicToolkitGUI:
         self.notebook.select(2)  # Select Investigation tab
 
     def _populate_investigation(self, summary):
-        """Populate the Investigation Dashboard tab with v2.0 intelligence."""
+        """Populate the Investigation Dashboard tab with v1.0 intelligence."""
         w = self.invest_text
         w.configure(state=tk.NORMAL)
         w.delete('1.0', tk.END)

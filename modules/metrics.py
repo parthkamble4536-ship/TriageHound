@@ -1,7 +1,7 @@
 """
-TriageHound v2.0 — Performance Metrics Collector
+TriageHound v1.0 — Performance Metrics Collector
 ===================================================
-Instruments the v2.0 pipeline with timing, resource usage, and
+Instruments the v1.0 pipeline with timing, resource usage, and
 accuracy metrics for research evaluation.
 
 Usage:
@@ -23,7 +23,7 @@ from datetime import datetime
 class MetricsCollector:
     """
     Collects and reports performance and accuracy metrics for
-    the TriageHound v2.0 intelligence pipeline.
+    the TriageHound v1.0 intelligence pipeline.
     """
 
     def __init__(self):
