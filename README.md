@@ -1,22 +1,23 @@
 <p align="center">
   <h1 align="center">🔍 TriageHound</h1>
   <p align="center">
-    <strong>Advanced Digital Forensics & Incident Response Toolkit</strong><br>
+    <strong>Cross-Platform Digital Forensics & Incident Response Toolkit</strong><br>
     <em>Collect. Correlate. Detect. Reason. Prioritize. Explain.</em>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue?logo=python&logoColor=white" alt="Python">
-    <img src="https://img.shields.io/badge/platform-Windows%2010%20|%2011-0078D6?logo=windows&logoColor=white" alt="Platform">
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+    <img src="https://img.shields.io/badge/python-3.11%20|%203.12-blue?logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/Windows-v1.0-0078D6?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/macOS-v2.0-000000?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/Linux-v3.0-FCC624?logo=linux&logoColor=black" alt="Linux">
     <img src="https://img.shields.io/badge/interface-CLI%20%2B%20GUI-orange" alt="Interface">
   </p>
 </p>
 
 ---
 
-**TriageHound** is a modular, standalone Windows Incident Response toolkit for rapid live-system triage, advanced forensic artifact collection, and automated threat hunting.
+**TriageHound** is a modular, standalone Incident Response toolkit for rapid live-system triage, advanced forensic artifact collection, and automated threat hunting. Originally built for Windows, it now features native support for **Windows**, **macOS**, and **Linux**.
 
-It gathers volatile data, parses deep file-system artifacts to defeat anti-forensics, scans for malicious indicators using **YARA** and **Sigma** rules, and generates a **cryptographically sealed PDF report** for legal chain-of-custody.
+It gathers volatile data, parses deep file-system artifacts (like USN Journals, FSEvents, and in-memory drops) to defeat anti-forensics, scans for malicious indicators using **YARA** and **Sigma** rules, and generates a **cryptographically sealed PDF report** for legal chain-of-custody.
 
 > **Why "TriageHound"?** — In Incident Response, *triage* is the first 30 minutes on a compromised machine. Like a bloodhound tracking a scent, TriageHound follows every trace an attacker left behind — even the ones they tried to destroy.
 
@@ -41,16 +42,21 @@ It gathers volatile data, parses deep file-system artifacts to defeat anti-foren
 
 ### Overlapping Artifact Collection (Anti-Forensics Resilience)
 
-Real attackers don't leave evidence lying around. They delete malware, wipe Prefetch files, and clear event logs. TriageHound defeats this by collecting **redundant, overlapping proof** from multiple independent sources:
+Real attackers don't leave evidence lying around. They delete malware, wipe Prefetch files, and clear event logs. TriageHound defeats this by collecting **redundant, overlapping proof** from multiple independent sources across all operating systems:
 
-| Artifact | What It Proves | Survives Deletion Of... |
-|---|---|---|
-| **Prefetch** (`.pf` files) | Program was executed, how many times, and when | — |
-| **ShimCache** (Registry) | Program was shimmed/executed by Windows | Prefetch files |
-| **USN Journal** (`$UsnJrnl:$J`) | File was created/modified/deleted on disk | Prefetch + ShimCache |
-| **Volume Shadow Copies** | Older versions of deleted files can be recovered | All of the above |
+| OS | Artifact | What It Proves | Survives Deletion Of... |
+|---|---|---|---|
+| **Windows (v1.0)** | Prefetch (`.pf`) | Program execution, run count | — |
+| | ShimCache | Executable was shimmed by OS | Prefetch files |
+| | USN Journal (`$J`) | File created/modified/deleted | Prefetch + ShimCache |
+| **macOS (v2.0)** | KnowledgeC | App usage, duration | — |
+| | QuarantineEvents | Files downloaded from web | Browser history |
+| | FSEvents | File creations/deletions | Application logs |
+| **Linux (v3.0)** | Shell History | Commands run (`.bash_history`) | — |
+| | In-Memory Drops | Reverse shells run from `/dev/shm` | Disk wiping |
+| | SUID Binaries | Persistence mechanisms | `auth.log` clearing |
 
-> 💡 **This is the single biggest differentiator.** Most student forensic tools only collect one of these. TriageHound collects all four, so even if an attacker defeats one artifact, the others still convict them.
+> 💡 **This is the single biggest differentiator.** Most forensic tools only collect one of these. TriageHound collects them all, so even if an attacker defeats one artifact, the others still convict them.
 
 ### Automated Threat Hunting
 
@@ -73,18 +79,21 @@ Real attackers don't leave evidence lying around. They delete malware, wipe Pref
 
 ### Core Evidence Collection
 
-- **Running Processes** — PID, name, CPU%, memory, username (via `psutil`)
-- **Startup Programs** — Registry Run keys + Startup folders, with suspicious-flag heuristics
-- **USB Device History** — Every USB device ever connected (serial numbers, device IDs)
-- **Browser History** — Chrome, Edge, Firefox (URLs, titles, timestamps)
-- **Recent Files** — Windows Recent Items from the Registry
-- **Event Logs** — Full `.evtx` parsing with field-level extraction for Sigma matching
+- **Windows (v1.0)**: Running Processes, Registry Startup, USB History, Event Logs, Prefetch, USN Journal
+- **macOS (v2.0)**: Unified Logs (`log show`), LaunchDaemons/Agents, FSEvents, QuarantineEvents, KnowledgeC
+- **Linux (v3.0)**: Syslog/Auth logs, `.bash_history` (all users), Cron jobs, Systemd services, `/dev/shm` drops, SUID binaries
 
 ### Chain of Custody & Legal Defensibility
 
-- **SHA-256 Cryptographic Sealing** — The final PDF report and SQLite database are hashed. A `seal_<CASE>.txt` manifest is generated so any tampering is instantly detectable.
-- **Super Timeline** — All timestamps from every module are merged into a single chronological timeline, exportable to JSON/CSV for ingestion into tools like Timesketch or Splunk.
-- **Audit Logging** — TriageHound logs its own execution actions for chain-of-custody integrity.
+- **SHA-256 Cryptographic Sealing** — The final PDF report and SQLite database are hashed. A `seal_<CASE>.txt` manifest is generated so any tampering is instantly detectable in court.
+- **Super Timeline** — All timestamps from every module are merged into a single chronological timeline, exportable to JSON/CSV.
+
+### 📦 Standalone USB Packaging (GitHub Actions CI/CD)
+
+TriageHound uses GitHub Actions to automatically compile standalone executables for all three operating systems. **No Python required on the target machine.**
+1. Plug USB into target machine.
+2. Run `TriageHound-Windows-v1.0.exe`, `TriageHound-Mac-v2.0`, or `TriageHound-Linux-v3.0`.
+3. Extract the cryptographically sealed report.
 
 ---
 
@@ -148,33 +157,32 @@ Despite the attacker deleting Prefetch files AND clearing event logs, TriageHoun
 
 ## 🚀 Quick Start
 
-### Option 1: Standalone `.exe` (Recommended for IR)
+### Option 1: Standalone USB Version (Recommended for Responders)
+Go to the **Releases** tab on GitHub and download the compiled binary for your target OS.
+- `TriageHound-Windows-v1.0.exe` (Run as Administrator)
+- `TriageHound-Mac-v2.0` (Run with `sudo` / Full Disk Access)
+- `TriageHound-Linux-v3.0` (Run with `sudo`)
 
-No Python installation required. Run from a USB drive on any Windows 10/11 machine.
+No installation required. Just plug in your USB and run.
 
-```powershell
-# Build the executable (one-time, on your dev machine)
-.\build_exe.ps1
+### Option 2: Run from Source (For Students/Researchers)
 
-# Copy dist\DF_Toolkit\ folder to your USB drive
-# Plug into target machine → Run DF_Toolkit.exe as Administrator
-```
-
-### Option 2: Run from Source
+Requires Python 3.11+.
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/TriageHound.git
-cd TriageHound
+# 1. Clone the repository
+git clone https://github.com/YOUR_USERNAME/DF_Toolkit.git
+cd DF_Toolkit
 
-# Install pinned dependencies
+# 2. (Optional) Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Or .venv\Scripts\activate on Windows
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Launch the GUI
+# 4. Launch the GUI
 python gui.py
-
-# Or run headless via CLI
-python main.py --case INC-2026-001 --investigator "Your Name" --target "WORKSTATION-42" --yara-scan --shimcache
 ```
 
 ---
@@ -228,22 +236,45 @@ TriageHound/
 ├── build_exe.ps1            # One-click .exe build script
 │
 ├── modules/                 # Collection & analysis modules
-│   ├── process_monitor.py   #   Running processes (psutil)
-│   ├── recent_files.py      #   Recently accessed files (Registry)
-│   ├── startup_analysis.py  #   Startup entries (Registry + folders)
-│   ├── usb_analysis.py      #   USB device history (Registry)
-│   ├── browser_analysis.py  #   Browser history (Chrome/Edge/Firefox)
-│   ├── event_logs.py        #   Event log parser (.evtx) with full field extraction
-│   ├── prefetch_parser.py   #   Windows Prefetch (.pf) parser
-│   ├── shimcache_parser.py  #   ShimCache (AppCompatCache) registry parser
-│   ├── usn_parser.py        #   NTFS USN Journal parser (raw ctypes IOCTL)
-│   ├── vss_extractor.py     #   Volume Shadow Copy lister & scanner
-│   ├── yara_scanner.py      #   YARA rule compiler & file scanner
-│   ├── sigma_engine.py      #   Lightweight Sigma rule matcher
-│   ├── virustotal.py        #   VirusTotal API v3 integration
-│   ├── hashing.py           #   MD5/SHA1/SHA256 file hashing
-│   ├── report_sealer.py     #   SHA-256 cryptographic sealing
-│   └── timeline.py          #   Chronological timeline generator
+│   ├── process_monitor.py   # Running processes (psutil)
+│   ├── browser_analysis.py  # Browser history (Chrome/Edge/Firefox)
+│   │
+│   ├── Windows (v1.0)
+│   │   ├── recent_files.py      # Registry: Recent Docs
+│   │   ├── startup_analysis.py  # Registry: Run Keys
+│   │   ├── usb_analysis.py      # Registry: USBSTOR
+│   │   ├── event_logs.py        # WinEvtx parser
+│   │   ├── prefetch_parser.py   # C:\Windows\Prefetch
+│   │   ├── shimcache_parser.py  # AppCompatCache
+│   │   └── usn_parser.py        # NTFS $UsnJrnl:$J
+│   │
+│   ├── macOS (v2.0)
+│   │   ├── mac_unified_logs.py  # log show
+│   │   ├── mac_persistence.py   # LaunchDaemons/Agents
+│   │   ├── mac_fsevents.py      # /.fseventsd/
+│   │   └── mac_telemetry.py     # Quarantine & KnowledgeC
+│   │
+│   ├── Linux (v3.0)
+│   │   ├── linux_system_logs.py # syslog / auth.log
+│   │   ├── linux_shell_history.py # bash/zsh history
+│   │   ├── linux_persistence.py # cron, systemd, SUID
+│   │   └── linux_memory_drops.py # /tmp, /dev/shm drops
+│   │
+│   ├── Engine Layer
+│   │   ├── normalization.py     # Standardizes OS artifacts
+│   │   ├── correlation_engine.py# Links related evidence
+│   │   ├── confidence_engine.py # Scores compromise (0-100)
+│   │   ├── anti_forensics.py    # Detects tampering
+│   │   ├── attack_chain.py      # Builds chronological narrative
+│   │   └── findings_engine.py   # Generates human-readable summaries
+│   │
+│   ├── volume_shadow.py     # VSS snapshot evidence recovery
+│   ├── yara_scanner.py      # YARA rule compiler & scanner
+│   ├── sigma_engine.py      # Lightweight Sigma rule matcher
+│   ├── virustotal.py        # VirusTotal API v3 integration
+│   ├── hashing.py           # MD5/SHA1/SHA256 file hashing
+│   ├── report_sealer.py     # SHA-256 cryptographic sealing
+│   └── timeline.py          # Chronological timeline generator
 │
 ├── database/
 │   ├── db_manager.py        # SQLite ORM for evidence storage
