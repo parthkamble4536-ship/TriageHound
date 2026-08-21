@@ -11,7 +11,10 @@ Requires Administrator privileges for raw disk access.
 """
 
 import ctypes
-import ctypes.wintypes
+try:
+    import ctypes.wintypes
+except ImportError:
+    pass
 import struct
 import os
 from datetime import datetime, timedelta
