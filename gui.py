@@ -173,7 +173,14 @@ class ForensicToolkitGUI:
         brand.pack(side=tk.LEFT, padx=(16, 20))
         tk.Label(brand, text="🔍 TriageHound", bg=BG_PANEL, fg=BRAND_CYAN,
                  font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="  v1.0", bg=BG_PANEL, fg=TEXT_DIM,
+        os_name = platform.system()
+        if os_name == 'Darwin':
+            version_text = "  v2.0 (Mac)"
+        elif os_name == 'Linux':
+            version_text = "  v3.0 (Linux)"
+        else:
+            version_text = "  v1.0 (Windows)"
+        tk.Label(brand, text=version_text, bg=BG_PANEL, fg=TEXT_DIM,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, pady=(4, 0))
 
         # Thin vertical separator
@@ -257,32 +264,54 @@ class ForensicToolkitGUI:
         self.mod_usb = tk.BooleanVar(value=True)
         self.mod_browser = tk.BooleanVar(value=True)
 
-        for text, var in [("Running Processes", self.mod_processes),
-                          ("Recent Files", self.mod_recent),
-                          ("Startup Programs", self.mod_startup),
-                          ("USB Device History", self.mod_usb),
-                          ("Browser History", self.mod_browser)]:
+        os_name = platform.system()
+
+        if os_name == 'Darwin':
+            core_mods = [("Running Processes", self.mod_processes),
+                         ("Plists (LaunchAgents)", self.mod_startup),
+                         ("Browser History", self.mod_browser)]
+        elif os_name == 'Linux':
+            core_mods = [("Running Processes", self.mod_processes),
+                         ("Shell History (Bash/Zsh)", self.mod_recent),
+                         ("Persistence (Cron/Systemd)", self.mod_startup),
+                         ("Browser History", self.mod_browser)]
+        else:
+            core_mods = [("Running Processes", self.mod_processes),
+                         ("Recent Files", self.mod_recent),
+                         ("Startup Programs", self.mod_startup),
+                         ("USB Device History", self.mod_usb),
+                         ("Browser History", self.mod_browser)]
+
+        for text, var in core_mods:
             ttk.Checkbutton(inner, text=text, variable=var,
                             style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
 
-        # Event Logs with browse
+        # Event Logs / System Logs
         self.mod_evtx = tk.BooleanVar(value=False)
         self.evtx_path_var = tk.StringVar()
 
-        ttk.Checkbutton(inner, text="Event Logs (.evtx)",
+        if os_name == 'Darwin':
+            evtx_text = "Unified Logs (log show)"
+        elif os_name == 'Linux':
+            evtx_text = "Auth/System Logs (/var/log)"
+        else:
+            evtx_text = "Event Logs (.evtx)"
+
+        ttk.Checkbutton(inner, text=evtx_text,
                         variable=self.mod_evtx,
                         style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
 
-        evtx_row = tk.Frame(inner, bg=BG_PANEL)
-        evtx_row.pack(fill=tk.X, padx=(18, 0), pady=(0, 2))
-        tk.Entry(evtx_row, textvariable=self.evtx_path_var, bg=BG_INPUT,
-                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                 font=("Segoe UI", 8), relief=tk.FLAT, highlightthickness=1,
-                 highlightbackground=BORDER, highlightcolor=ACCENT
-                 ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=1)
-        ttk.Button(evtx_row, text="...", style="Secondary.TButton",
-                   command=self._browse_evtx, width=3).pack(side=tk.LEFT,
-                                                              padx=(3, 0))
+        if os_name == 'Windows':
+            evtx_row = tk.Frame(inner, bg=BG_PANEL)
+            evtx_row.pack(fill=tk.X, padx=(18, 0), pady=(0, 2))
+            tk.Entry(evtx_row, textvariable=self.evtx_path_var, bg=BG_INPUT,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     font=("Segoe UI", 8), relief=tk.FLAT, highlightthickness=1,
+                     highlightbackground=BORDER, highlightcolor=ACCENT
+                     ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=1)
+            ttk.Button(evtx_row, text="...", style="Secondary.TButton",
+                       command=self._browse_evtx, width=3).pack(side=tk.LEFT,
+                                                                  padx=(3, 0))
 
         self._separator(inner)
 
@@ -294,10 +323,22 @@ class ForensicToolkitGUI:
         self.mod_usn = tk.BooleanVar(value=False)
         self.mod_vss = tk.BooleanVar(value=False)
 
-        for text, var in [("Prefetch Files ⚡", self.mod_prefetch),
-                          ("ShimCache", self.mod_shimcache),
-                          ("USN Journal ⚡", self.mod_usn),
-                          ("Shadow Copies ⚡", self.mod_vss)]:
+        if os_name == 'Darwin':
+            adv_mods = [("FSEvents ⚡", self.mod_usn),
+                        ("Quarantine Events", self.mod_prefetch),
+                        ("KnowledgeC Telemetry", self.mod_shimcache)]
+        elif os_name == 'Linux':
+            adv_mods = [("SSH / Sudoers Anomaly ⚡", self.mod_shimcache),
+                        ("In-Memory Drops (/dev/shm) ⚡", self.mod_usn),
+                        ("Package Manager Logs", self.mod_prefetch),
+                        ("SUID Binaries", self.mod_vss)]
+        else:
+            adv_mods = [("Prefetch Files ⚡", self.mod_prefetch),
+                        ("ShimCache", self.mod_shimcache),
+                        ("USN Journal ⚡", self.mod_usn),
+                        ("Shadow Copies ⚡", self.mod_vss)]
+
+        for text, var in adv_mods:
             ttk.Checkbutton(inner, text=text, variable=var,
                             style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
 

@@ -17,6 +17,7 @@ Prefetch files store:
 import os
 import struct
 import glob
+import platform
 from datetime import datetime, timedelta
 
 
@@ -127,6 +128,9 @@ def collect_prefetch(prefetch_dir=PREFETCH_DIR):
         Empty list if the directory is inaccessible (e.g. no admin rights).
     """
     results = []
+
+    if platform.system() != 'Windows':
+        return results
 
     if not os.path.exists(prefetch_dir):
         return results

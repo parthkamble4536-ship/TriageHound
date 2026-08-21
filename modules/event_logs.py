@@ -6,7 +6,14 @@ list of Event IDs. This enables the Sigma Rules Engine to match against
 any field in any event.
 """
 
-from Evtx.Evtx import Evtx  # pyrefly: ignore[missing-import]
+import platform
+
+try:
+    from Evtx.Evtx import Evtx  # pyrefly: ignore[missing-import]
+    EVTX_AVAILABLE = True
+except ImportError:
+    EVTX_AVAILABLE = False
+
 import xml.etree.ElementTree as ET
 
 # Key Event IDs for quick filtering (original functionality)
@@ -37,6 +44,8 @@ def parse_evtx(evtx_path, extract_all=False):
         list of event dicts
     """
     events = []
+    if platform.system() != 'Windows' or not EVTX_AVAILABLE:
+        return events
     try:
         with Evtx(evtx_path) as log:
             for record in log.records():

@@ -1,6 +1,16 @@
-import winreg
+import platform
+
+try:
+    import winreg
+    WINREG_AVAILABLE = True
+except ImportError:
+    WINREG_AVAILABLE = False
+
 
 def collect_recent_files():
+    if platform.system() != 'Windows' or not WINREG_AVAILABLE:
+        return []
+
     recent = []
     path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"
     try:

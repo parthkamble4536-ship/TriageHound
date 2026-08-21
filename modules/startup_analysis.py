@@ -1,15 +1,24 @@
-import winreg
+import platform
 import os
 
-STARTUP_LOCATIONS = [
-    (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run"),
-    (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Run"),
-    (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\RunOnce"),
-]
+try:
+    import winreg
+    WINREG_AVAILABLE = True
+except ImportError:
+    WINREG_AVAILABLE = False
 
 SUSPICIOUS_PATHS = ['temp', 'appdata\\local\\temp', 'downloads']
 
 def collect_startup_entries():
+    if platform.system() != 'Windows' or not WINREG_AVAILABLE:
+        return []
+
+    STARTUP_LOCATIONS = [
+        (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run"),
+        (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Run"),
+        (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\RunOnce"),
+    ]
+
     entries = []
     
     # 1. Check Registry Locations

@@ -1,6 +1,16 @@
-import winreg
+import platform
+
+try:
+    import winreg
+    WINREG_AVAILABLE = True
+except ImportError:
+    WINREG_AVAILABLE = False
+
 
 def collect_usb_history():
+    if platform.system() != 'Windows' or not WINREG_AVAILABLE:
+        return []
+
     devices = []
     path = r"SYSTEM\CurrentControlSet\Enum\USBSTOR"
     try:

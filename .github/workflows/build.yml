@@ -1,0 +1,100 @@
+name: Build TriageHound Standalone (Windows, Mac, Linux)
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.0.0, etc.
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write  # Needed to create releases
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: TriageHound-Windows-v1.0.exe
+            pyinstaller_args: --onefile --windowed --name TriageHound-Windows-v1.0 --icon=docs/images/icon.ico
+          - os: macos-latest
+            artifact_name: TriageHound-Mac-v2.0
+            pyinstaller_args: --onefile --windowed --name TriageHound-Mac-v2.0
+          - os: ubuntu-latest
+            artifact_name: TriageHound-Linux-v3.0
+            pyinstaller_args: --onefile --name TriageHound-Linux-v3.0
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      # Linux/Mac need tkinter installed via system package manager
+      - name: Install Tkinter (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Build standalone executable
+        run: |
+          pyinstaller ${{ matrix.pyinstaller_args }} gui.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "TriageHound ${{ github.ref_name }}"
+          body: |
+            ## TriageHound Cross-Platform DFIR Toolkit
+
+            **Downloads:**
+            - **Windows (v1.0):** `TriageHound-Windows-v1.0.exe`
+            - **macOS (v2.0):** `TriageHound-Mac-v2.0` (grant Full Disk Access to Terminal)
+            - **Linux (v3.0):** `TriageHound-Linux-v3.0` (run with `sudo`)
+
+            ### For Students / Researchers
+            Clone the repository and run from source:
+            ```bash
+            git clone https://github.com/YOUR_USERNAME/DF_Toolkit.git
+            cd DF_Toolkit
+            pip install -r requirements.txt
+            python gui.py
+            ```
+
+            ### For Law Enforcement / Incident Responders
+            Download the standalone USB version for your target OS above.
+            No Python installation required.
+
+            ---
+            See [CHANGELOG.md](CHANGELOG.md) for full release notes.
+          files: |
+            release-artifacts/**/*
+          draft: false
+          prerelease: false
