@@ -43,6 +43,59 @@ TEXT_DIM      = "#484f58"
 BRAND_CYAN   = "#79c0ff"
 
 
+# ── Custom Green Checkbutton ─────────────────────────────────────────────────
+class GreenCheckbutton(tk.Frame):
+    """
+    Custom checkbutton that shows a green tick (✓) when selected and a
+    dim empty box (☐) when deselected. Works identically on Windows, macOS,
+    and Linux without any platform-specific Tk/Tcl workarounds.
+    """
+    def __init__(self, parent, text, variable, bg=None, font_size=9, **kwargs):
+        bg = bg or BG_PANEL
+        super().__init__(parent, bg=bg, cursor="hand2", **kwargs)
+        self._var = variable
+
+        # Indicator label (draws the tick or empty box)
+        self._indicator = tk.Label(
+            self, bg=bg,
+            font=("Segoe UI", font_size),
+            width=2, anchor="center"
+        )
+        self._indicator.pack(side=tk.LEFT)
+
+        # Text label
+        self._text_lbl = tk.Label(
+            self, text=text, bg=bg,
+            fg=TEXT_PRIMARY,
+            font=("Segoe UI", font_size),
+            anchor="w"
+        )
+        self._text_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Bind click events on all child widgets
+        for widget in (self, self._indicator, self._text_lbl):
+            widget.bind("<Button-1>", self._toggle)
+            widget.bind("<Enter>", lambda e: self.config(bg=BG_HOVER) or
+                        self._indicator.config(bg=BG_HOVER) or
+                        self._text_lbl.config(bg=BG_HOVER))
+            widget.bind("<Leave>", lambda e: self.config(bg=bg) or
+                        self._indicator.config(bg=bg) or
+                        self._text_lbl.config(bg=bg))
+
+        # Watch for programmatic changes to the variable
+        self._var.trace_add("write", lambda *_: self._refresh())
+        self._refresh()
+
+    def _toggle(self, event=None):
+        self._var.set(not self._var.get())
+
+    def _refresh(self):
+        if self._var.get():
+            self._indicator.config(text="✓", fg=ACCENT_GREEN)
+        else:
+            self._indicator.config(text="☐", fg=TEXT_DIM)
+
+
 class ForensicToolkitGUI:
     def __init__(self, root):
         self.root = root
@@ -285,8 +338,8 @@ class ForensicToolkitGUI:
                          ("Browser History", self.mod_browser)]
 
         for text, var in core_mods:
-            ttk.Checkbutton(inner, text=text, variable=var,
-                            style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+            GreenCheckbutton(inner, text=text, variable=var).pack(
+                anchor=tk.W, pady=1, fill=tk.X)
 
         # Event Logs / System Logs
         self.mod_evtx = tk.BooleanVar(value=False)
@@ -299,9 +352,8 @@ class ForensicToolkitGUI:
         else:
             evtx_text = "Event Logs (.evtx)"
 
-        ttk.Checkbutton(inner, text=evtx_text,
-                        variable=self.mod_evtx,
-                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+        GreenCheckbutton(inner, text=evtx_text, variable=self.mod_evtx).pack(
+            anchor=tk.W, pady=1, fill=tk.X)
 
         if os_name == 'Windows':
             evtx_row = tk.Frame(inner, bg=BG_PANEL)
@@ -341,8 +393,8 @@ class ForensicToolkitGUI:
                         ("Shadow Copies ⚡", self.mod_vss)]
 
         for text, var in adv_mods:
-            ttk.Checkbutton(inner, text=text, variable=var,
-                            style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+            GreenCheckbutton(inner, text=text, variable=var).pack(
+                anchor=tk.W, pady=1, fill=tk.X)
 
         ttk.Label(inner, text="⚡ = Administrator required",
                   style="Dim.TLabel").pack(anchor=tk.W, padx=18, pady=(0, 2))
@@ -357,15 +409,12 @@ class ForensicToolkitGUI:
         self.mod_vt = tk.BooleanVar(value=False)
         self.vt_api_key_var = tk.StringVar()
 
-        ttk.Checkbutton(inner, text="YARA Malware Scan",
-                        variable=self.mod_yara,
-                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
-        ttk.Checkbutton(inner, text="Sigma Rules Scan",
-                        variable=self.mod_sigma,
-                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
-        ttk.Checkbutton(inner, text="VirusTotal Lookup",
-                        variable=self.mod_vt,
-                        style="Mod.TCheckbutton").pack(anchor=tk.W, pady=1)
+        GreenCheckbutton(inner, text="YARA Malware Scan", variable=self.mod_yara).pack(
+            anchor=tk.W, pady=1, fill=tk.X)
+        GreenCheckbutton(inner, text="Sigma Rules Scan", variable=self.mod_sigma).pack(
+            anchor=tk.W, pady=1, fill=tk.X)
+        GreenCheckbutton(inner, text="VirusTotal Lookup", variable=self.mod_vt).pack(
+            anchor=tk.W, pady=1, fill=tk.X)
 
         vt_row = tk.Frame(inner, bg=BG_PANEL)
         vt_row.pack(fill=tk.X, padx=(18, 0), pady=(0, 2))
@@ -390,8 +439,8 @@ class ForensicToolkitGUI:
         for text, var in [("PDF Report", self.export_pdf),
                           ("JSON Timeline", self.export_json),
                           ("CSV Timeline", self.export_csv)]:
-            ttk.Checkbutton(inner, text=text, variable=var,
-                            style="Export.TCheckbutton").pack(anchor=tk.W, pady=1)
+            GreenCheckbutton(inner, text=text, variable=var,
+                             font_size=9).pack(anchor=tk.W, pady=1, fill=tk.X)
 
         # Footer
         tk.Label(inner, text=f"{platform.system()} {platform.release()}  •  Python {platform.python_version()}",
