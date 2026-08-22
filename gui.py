@@ -57,6 +57,8 @@ class ForensicToolkitGUI:
 
         self._setup_styles()
         self._build_ui()
+        self.root.update_idletasks()
+        self.root.update()
 
     # ── Styles ────────────────────────────────────────────────────────────────
     def _setup_styles(self):
