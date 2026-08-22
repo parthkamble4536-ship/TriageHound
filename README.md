@@ -23,6 +23,58 @@ It gathers volatile data, parses deep file-system artifacts (like USN Journals, 
 
 ---
 
+## 🏗️ Architecture Pipeline
+
+```mermaid
+flowchart TD
+    %% Define Styles
+    classDef collection fill:#1f2937,stroke:#3b82f6,stroke-width:2px,color:#fff
+    classDef intel fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#fff
+    classDef report fill:#1f2937,stroke:#f59e0b,stroke-width:2px,color:#fff
+    classDef core fill:#1f2937,stroke:#8b5cf6,stroke-width:2px,color:#fff
+
+    subgraph OS[Cross-Platform OS Collection]
+        direction LR
+        Win["Windows (v1.0)<br/>Prefetch, USN, EVTX"]:::collection
+        Mac["macOS (v2.0)<br/>Unified Logs, FSEvents"]:::collection
+        Lin["Linux (v3.0)<br/>Syslog, Bash History"]:::collection
+    end
+
+    subgraph Intelligence[Threat Intelligence & Engines]
+        direction TB
+        Norm["Evidence Normalization"]:::intel
+        Cor["Cross-Artifact Correlation"]:::intel
+        AF["Anti-Forensics Detection"]:::intel
+        Scoring["Confidence Scoring"]:::intel
+    end
+
+    subgraph ThreatFeeds[Automated Threat Hunting]
+        direction TB
+        YARA["YARA Signatures"]:::core
+        Sigma["Sigma Event Rules"]:::core
+        VT["VirusTotal API"]:::core
+    end
+
+    subgraph Reporting[Output & Legal Defensibility]
+        direction LR
+        PDF["Professional PDF Report"]:::report
+        Timeline["Master Super-Timeline"]:::report
+        Crypto["SHA-256 Crypto Sealing"]:::report
+    end
+
+    OS --> Norm
+    Norm --> Cor
+    Cor --> AF
+    AF --> Scoring
+
+    ThreatFeeds -.-> Cor
+    ThreatFeeds -.-> Scoring
+
+    Scoring --> Reporting
+```
+
+---
+
 ## 📑 Table of Contents
 
 - [Key Features](#-key-features)
