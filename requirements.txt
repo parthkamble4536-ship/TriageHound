@@ -7,8 +7,8 @@
 psutil==7.0.0
 pywin32==310 ; sys_platform == 'win32'
 
-# Event Log parsing (.evtx files)
-python-evtx==0.8.1
+# Event Log parsing (.evtx files) — Windows only
+python-evtx==0.8.1 ; sys_platform == 'win32'
 
 # Data handling & timeline export
 pandas==2.2.3

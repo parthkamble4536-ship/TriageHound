@@ -12,11 +12,12 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false  # Don't cancel other OS builds if one fails
       matrix:
         include:
           - os: windows-latest
             artifact_name: TriageHound-Windows-v1.0.exe
-            pyinstaller_args: --onefile --windowed --name TriageHound-Windows-v1.0 --icon=docs/images/icon.ico
+            pyinstaller_args: --onefile --windowed --name TriageHound-Windows-v1.0
           - os: macos-latest
             artifact_name: TriageHound-Mac-v2.0
             pyinstaller_args: --onefile --windowed --name TriageHound-Mac-v2.0
@@ -35,17 +36,36 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      # ── System dependencies per OS ──────────────────────────────────
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
-          python -m pip install --upgrade pip
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-dev
+          sudo apt-get install -y libpango1.0-dev libpangocairo-1.0-0 libgdk-pixbuf2.0-dev libffi-dev libcairo2-dev
+          sudo apt-get install -y pkg-config
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install pango cairo libffi gdk-pixbuf pkg-config
+
+      # ── Install GTK for WeasyPrint (Windows) ────────────────────────
+      - name: Install GTK (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install msys2 -y --no-progress
+          # Add MSYS2 ucrt64 bin to PATH for WeasyPrint DLLs
+          echo "C:\msys64\ucrt64\bin" >> $env:GITHUB_PATH
+
+      # ── Python dependencies ─────────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
           pip install -r requirements.txt
 
-      # Linux/Mac need tkinter installed via system package manager
-      - name: Install Tkinter (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
-
+      # ── Build ───────────────────────────────────────────────────────
       - name: Build standalone executable
         run: |
           pyinstaller ${{ matrix.pyinstaller_args }} gui.py
@@ -82,8 +102,8 @@ jobs:
             ### For Students / Researchers
             Clone the repository and run from source:
             ```bash
-            git clone https://github.com/YOUR_USERNAME/DF_Toolkit.git
-            cd DF_Toolkit
+            git clone https://github.com/parthkamble4536-ship/TriageHound.git
+            cd TriageHound
             pip install -r requirements.txt
             python gui.py
             ```
@@ -93,7 +113,7 @@ jobs:
             No Python installation required.
 
             ---
-            See [CHANGELOG.md](CHANGELOG.md) for full release notes.
+            See [README.md](README.md) for full documentation.
           files: |
             release-artifacts/**/*
           draft: false

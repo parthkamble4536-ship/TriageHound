@@ -10,14 +10,16 @@ Amcache, the USN Journal often still records that the file existed.
 Requires Administrator privileges for raw disk access.
 """
 
-import ctypes
-try:
-    import ctypes.wintypes
-except ImportError:
-    pass
 import struct
 import os
+import platform
 from datetime import datetime, timedelta
+
+if platform.system() == 'Windows':
+    import ctypes
+    import ctypes.wintypes
+else:
+    ctypes = None
 
 
 # ── Windows constants ─────────────────────────────────────────────────────────
