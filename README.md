@@ -171,8 +171,8 @@ Requires Python 3.11+.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/DF_Toolkit.git
-cd DF_Toolkit
+git clone https://github.com/parthkamble4536-ship/TriageHound.git
+cd TriageHound
 
 # 2. (Optional) Create a virtual environment
 python -m venv .venv
