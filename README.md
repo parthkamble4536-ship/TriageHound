@@ -447,6 +447,17 @@ TriageHound is designed to **degrade gracefully**. If a module cannot access an 
 | **`pyyaml` not installed** | Sigma engine is skipped entirely. A warning is printed. |
 | **Target has no shadow copies** | VSS module returns empty list. No crash. |
 | **Corrupted Prefetch file** | Individual file is skipped via try/except. Other files continue parsing. |
+| **False Positives (OneDrive / Docker)** | The Intelligence Engine intentionally flags *any* dropped executable or background persistence mechanism. On personal machines, legitimate software (like OneDrive updaters or Docker proxies) that mimic malware behaviors (dropping `.exe` files into hidden folders, running with high privileges) will be flagged as "Suspicious" with a Medium/High severity. |
+
+---
+
+## 🚀 Future Scope & Roadmap
+
+As TriageHound continues to evolve, the following enterprise-grade features are planned for future releases:
+
+- **Intelligent Whitelisting & Tuning**: Implementation of a Cryptographic Signature Verification engine. If a dropped executable or persistence mechanism is digitally signed by a trusted vendor (e.g., Microsoft Corporation, Docker Inc., Google LLC), the Intelligence Engine will automatically whitelist it to drastically reduce false positives in SOC environments.
+- **Remote Agent Deployment**: Ability to deploy TriageHound headless agents across an Active Directory domain via WinRM or SSH for enterprise-wide sweeps.
+- **Memory Forensics Integration**: Automated Volatility3 integration to dump and parse active RAM for rootkits and injected threads.
 
 ---
 
