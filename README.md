@@ -26,51 +26,109 @@ It gathers volatile data, parses deep file-system artifacts (like USN Journals, 
 ## 🏗️ Architecture Pipeline
 
 ```mermaid
-flowchart TD
-    %% Define Styles
-    classDef collection fill:#1f2937,stroke:#3b82f6,stroke-width:2px,color:#fff
-    classDef intel fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#fff
-    classDef report fill:#1f2937,stroke:#f59e0b,stroke-width:2px,color:#fff
-    classDef core fill:#1f2937,stroke:#8b5cf6,stroke-width:2px,color:#fff
+flowchart TB
+    %% ── Styles ──────────────────────────────────────────────
+    classDef entrypoint fill:#0d1117,stroke:#58a6ff,stroke-width:2px,color:#e6edf3,font-weight:bold
+    classDef winNode fill:#0f1d2e,stroke:#3b82f6,stroke-width:1.5px,color:#93c5fd
+    classDef macNode fill:#0f1d2e,stroke:#a78bfa,stroke-width:1.5px,color:#c4b5fd
+    classDef linNode fill:#0f1d2e,stroke:#fbbf24,stroke-width:1.5px,color:#fde68a
+    classDef dbNode fill:#1a1a2e,stroke:#6366f1,stroke-width:2px,color:#a5b4fc,font-weight:bold
+    classDef intelNode fill:#0b1e0b,stroke:#10b981,stroke-width:1.5px,color:#6ee7b7
+    classDef threatNode fill:#1e0b1e,stroke:#ec4899,stroke-width:1.5px,color:#f9a8d4
+    classDef outputNode fill:#1e1a0b,stroke:#f59e0b,stroke-width:1.5px,color:#fcd34d
+    classDef sealNode fill:#0d1117,stroke:#ef4444,stroke-width:2px,color:#fca5a5,font-weight:bold
 
-    subgraph OS[Cross-Platform OS Collection]
+    %% ── Entry ───────────────────────────────────────────────
+    GUI["🖥️ TriageHound GUI / CLI<br/>Case ID • Examiner • Output Path"]:::entrypoint
+    DETECT{"🔎 Platform Detection<br/>Windows │ macOS │ Linux"}:::entrypoint
+
+    GUI --> DETECT
+
+    %% ── Windows Collection ──────────────────────────────────
+    subgraph WIN["🪟 Windows v1.0 — Artifact Collection"]
         direction LR
-        Win["Windows (v1.0)<br/>Prefetch, USN, EVTX"]:::collection
-        Mac["macOS (v2.0)<br/>Unified Logs, FSEvents"]:::collection
-        Lin["Linux (v3.0)<br/>Syslog, Bash History"]:::collection
+        W1["Prefetch (.pf)"]:::winNode
+        W2["ShimCache"]:::winNode
+        W3["USN Journal"]:::winNode
+        W4["Event Logs (.evtx)"]:::winNode
+        W5["Processes & Startup"]:::winNode
+        W6["USB & Browser History"]:::winNode
     end
 
-    subgraph Intelligence[Threat Intelligence & Engines]
-        direction TB
-        Norm["Evidence Normalization"]:::intel
-        Cor["Cross-Artifact Correlation"]:::intel
-        AF["Anti-Forensics Detection"]:::intel
-        Scoring["Confidence Scoring"]:::intel
-    end
-
-    subgraph ThreatFeeds[Automated Threat Hunting]
-        direction TB
-        YARA["YARA Signatures"]:::core
-        Sigma["Sigma Event Rules"]:::core
-        VT["VirusTotal API"]:::core
-    end
-
-    subgraph Reporting[Output & Legal Defensibility]
+    %% ── macOS Collection ────────────────────────────────────
+    subgraph MAC["🍎 macOS v2.0 — Artifact Collection"]
         direction LR
-        PDF["Professional PDF Report"]:::report
-        Timeline["Master Super-Timeline"]:::report
-        Crypto["SHA-256 Crypto Sealing"]:::report
+        M1["Unified Logs"]:::macNode
+        M2["FSEvents"]:::macNode
+        M3["KnowledgeC"]:::macNode
+        M4["QuarantineEvents"]:::macNode
+        M5["LaunchDaemons"]:::macNode
+        M6["Browser & Telemetry"]:::macNode
     end
 
-    OS --> Norm
-    Norm --> Cor
-    Cor --> AF
-    AF --> Scoring
+    %% ── Linux Collection ────────────────────────────────────
+    subgraph LIN["🐧 Linux v3.0 — Artifact Collection"]
+        direction LR
+        L1["Syslog & Auth Logs"]:::linNode
+        L2["Shell History"]:::linNode
+        L3["Cron & Systemd"]:::linNode
+        L4["/dev/shm Drops"]:::linNode
+        L5["SUID Binaries"]:::linNode
+        L6["Persistence Checks"]:::linNode
+    end
 
-    ThreatFeeds -.-> Cor
-    ThreatFeeds -.-> Scoring
+    DETECT -->|"os == Windows"| WIN
+    DETECT -->|"os == Darwin"| MAC
+    DETECT -->|"os == Linux"| LIN
 
-    Scoring --> Reporting
+    %% ── Central Database ────────────────────────────────────
+    DB[("🗄️ SQLite Forensic Database<br/>Timestamped • Case-Linked")]:::dbNode
+
+    WIN --> DB
+    MAC --> DB
+    LIN --> DB
+
+    %% ── Threat Hunting ──────────────────────────────────────
+    subgraph THREAT["🎯 Automated Threat Hunting"]
+        direction LR
+        TH1["YARA Engine<br/>Malware Signatures"]:::threatNode
+        TH2["Sigma Engine<br/>Behavioral Rules"]:::threatNode
+        TH3["VirusTotal API<br/>70+ AV Engines"]:::threatNode
+    end
+
+    DB --> THREAT
+
+    %% ── Intelligence Pipeline ───────────────────────────────
+    subgraph INTEL["🧠 v1.0 Intelligence Pipeline"]
+        direction TB
+        I1["Evidence Normalization<br/>Unified Process & File Entities"]:::intelNode
+        I2["Cross-Artifact Correlation<br/>Link Prefetch ↔ ShimCache ↔ USN ↔ EVTX"]:::intelNode
+        I3["Anti-Forensics Detection<br/>Missing EXEs • Rapid Deletes • Log Gaps"]:::intelNode
+        I4["Attack Chain Reconstruction<br/>Delivery → Execution → Persistence → Exfil"]:::intelNode
+        I5["Confidence Scoring<br/>Explainable 0–100 Compromise Score"]:::intelNode
+        I6["Investigation Findings<br/>Structured Verdicts + Recommended Actions"]:::intelNode
+        I1 --> I2 --> I3 --> I4 --> I5 --> I6
+    end
+
+    DB --> INTEL
+    THREAT -.->|"feeds into"| I2
+    THREAT -.->|"feeds into"| I5
+
+    %% ── Output ──────────────────────────────────────────────
+    subgraph OUTPUT["📄 Output & Legal Defensibility"]
+        direction LR
+        O1["Professional PDF Report<br/>Cover Page • Executive Summary • Details"]:::outputNode
+        O2["Super Timeline<br/>Unified Chronological View"]:::outputNode
+        O3["JSON / CSV Export<br/>SIEM-Ready Data"]:::outputNode
+    end
+
+    INTEL --> OUTPUT
+    THREAT --> OUTPUT
+
+    %% ── Crypto Seal ─────────────────────────────────────────
+    SEAL["🔒 SHA-256 Cryptographic Seal<br/>Chain-of-Custody Manifest • Court-Admissible"]:::sealNode
+
+    OUTPUT --> SEAL
 ```
 
 ---
