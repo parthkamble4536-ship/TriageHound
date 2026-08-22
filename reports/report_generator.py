@@ -45,7 +45,7 @@ def _get_next_report_id():
 
 def _esc(text, maxlen=0):
     """Escape HTML and optionally truncate."""
-    text = str(text) if text else '\u2014'
+    text = str(text) if text else '-'
     if maxlen and len(text) > maxlen:
         text = text[:maxlen] + '\u2026'
     return escape(text)
@@ -225,10 +225,10 @@ h2.section-heading {
 
 def _build_cover_page(case_info, report_id, now_str, tool_version):
     """Build the cover page HTML."""
-    case_id = _esc(case_info.get('case_id', '\u2014'))
+    case_id = _esc(case_info.get('case_id', '-'))
     case_name = _esc(case_info.get('case_name', 'Forensic Investigation'))
-    investigator = _esc(case_info.get('investigator_name', '\u2014'))
-    target = _esc(case_info.get('target_system', '\u2014'))
+    investigator = _esc(case_info.get('investigator_name', '-'))
+    target = _esc(case_info.get('target_system', '-'))
     os_platform = f"{platform.system()} {platform.release()}"
     issued_date = datetime.now().strftime('%Y-%m-%d')
 
@@ -298,8 +298,8 @@ def _build_summary_page(counts, yara_rows, sigma_rows):
     for row in yara_rows:
         raw = json.loads(row.get('raw_data', '{}'))
         sev = raw.get('severity', 'MEDIUM').upper()
-        rule = _esc(raw.get('rule', '\u2014'), 40)
-        target_file = _esc(os.path.basename(raw.get('filepath', '\u2014')), 50)
+        rule = _esc(raw.get('rule', '-'), 40)
+        target_file = _esc(os.path.basename(raw.get('filepath', '-')), 50)
         threat_rows += f"""
             <tr>
                 <td>{_severity_html(sev)}</td>
@@ -310,7 +310,7 @@ def _build_summary_page(counts, yara_rows, sigma_rows):
     for row in sigma_rows:
         raw = json.loads(row.get('raw_data', '{}'))
         level = raw.get('rule_level', 'medium').upper()
-        rule_title = _esc(raw.get('rule_title', '\u2014'), 40)
+        rule_title = _esc(raw.get('rule_title', '-'), 40)
         threat_rows += f"""
             <tr>
                 <td>{_severity_html(level)}</td>
@@ -322,7 +322,7 @@ def _build_summary_page(counts, yara_rows, sigma_rows):
         threat_rows = """
             <tr>
                 <td colspan="3" style="text-align: center; color: #2e8b57; font-family: Arial, sans-serif;">
-                    No threats detected \u2014 all checks passed.
+                    No threats detected - all checks passed.
                 </td>
             </tr>"""
 
@@ -398,10 +398,10 @@ def _build_yara_section(yara_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('rule', '\u2014'), 30)}</td>
-                <td>{_severity_html(raw.get('severity', '\u2014'))}</td>
-                <td>{_esc(os.path.basename(raw.get('filepath', '\u2014')), 30)}</td>
-                <td>{_esc(raw.get('description', '\u2014'), 50)}</td>
+                <td>{_esc(raw.get('rule', '-'), 30)}</td>
+                <td>{_severity_html(raw.get('severity', '-'))}</td>
+                <td>{_esc(os.path.basename(raw.get('filepath', '-')), 30)}</td>
+                <td>{_esc(raw.get('description', '-'), 50)}</td>
             </tr>"""
 
     return f"""
@@ -429,9 +429,9 @@ def _build_startup_section(startup_rows):
         is_sus = raw.get('flagged_suspicious', False)
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('name', '\u2014'), 25)}</td>
-                <td>{_esc(raw.get('command', '\u2014'), 50)}</td>
-                <td>{_esc(raw.get('source_type', '\u2014'))}</td>
+                <td>{_esc(raw.get('name', '-'), 25)}</td>
+                <td>{_esc(raw.get('command', '-'), 50)}</td>
+                <td>{_esc(raw.get('source_type', '-'))}</td>
                 <td>{'<span class="sev-high">YES</span>' if is_sus else 'No'}</td>
             </tr>"""
 
@@ -459,8 +459,8 @@ def _build_usb_section(usb_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('friendly_name', '\u2014'), 40)}</td>
-                <td>{_esc(raw.get('serial_number', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('friendly_name', '-'), 40)}</td>
+                <td>{_esc(raw.get('serial_number', '-'), 30)}</td>
                 <td>{_esc(raw.get('device_id', 'N/A'), 40)}</td>
             </tr>"""
 
@@ -486,13 +486,13 @@ def _build_processes_section(process_rows):
     for row in process_rows:
         raw = json.loads(row.get('raw_data', '{}'))
         mem_rss = raw.get('memory_rss')
-        mem_mb = str(round(mem_rss / (1024 * 1024), 1)) if mem_rss else '\u2014'
-        cpu = str(raw.get('cpu_percent', '\u2014'))
-        username = _esc(raw.get('username', '\u2014'), 25)
+        mem_mb = str(round(mem_rss / (1024 * 1024), 1)) if mem_rss else '-'
+        cpu = str(raw.get('cpu_percent', '-'))
+        username = _esc(raw.get('username', '-'), 25)
         rows_html += f"""
             <tr>
-                <td>{raw.get('pid', '\u2014')}</td>
-                <td>{_esc(raw.get('name', '\u2014'), 35)}</td>
+                <td>{raw.get('pid', '-')}</td>
+                <td>{_esc(raw.get('name', '-'), 35)}</td>
                 <td>{cpu}</td>
                 <td>{mem_mb}</td>
                 <td>{username}</td>
@@ -523,7 +523,7 @@ def _build_recent_files_section(recent_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('filename', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('filename', '-'), 30)}</td>
                 <td>{_esc(raw.get('filepath', raw.get('path', 'Registry Entry')), 70)}</td>
             </tr>"""
 
@@ -549,9 +549,9 @@ def _build_shimcache_section(shimcache_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{raw.get('cache_position', '\u2014')}</td>
-                <td>{_esc(raw.get('executable_path', '\u2014'), 65)}</td>
-                <td>{_esc(raw.get('last_modified', '\u2014'), 25)}</td>
+                <td>{raw.get('cache_position', '-')}</td>
+                <td>{_esc(raw.get('executable_path', '-'), 65)}</td>
+                <td>{_esc(raw.get('last_modified', '-'), 25)}</td>
             </tr>"""
 
     return f"""
@@ -576,10 +576,10 @@ def _build_timeline_section(timeline_data):
     for e in timeline_data:
         rows_html += f"""
             <tr>
-                <td>{_esc(str(e.get('time', '\u2014')), 25)}</td>
-                <td>{_esc(str(e.get('type', '\u2014')), 18)}</td>
-                <td>{_esc(str(e.get('source', '\u2014')), 18)}</td>
-                <td>{_esc(str(e.get('event', '\u2014')), 55)}</td>
+                <td>{_esc(str(e.get('time', '-')), 25)}</td>
+                <td>{_esc(str(e.get('type', '-')), 18)}</td>
+                <td>{_esc(str(e.get('source', '-')), 18)}</td>
+                <td>{_esc(str(e.get('event', '-')), 55)}</td>
             </tr>"""
 
     return f"""
@@ -606,10 +606,10 @@ def _build_browser_section(browser_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('browser', '\u2014'))}</td>
-                <td>{_esc(raw.get('title', '\u2014'), 30)}</td>
-                <td>{_esc(raw.get('url', '\u2014'), 50)}</td>
-                <td>{_esc(raw.get('last_visited', '\u2014'), 22)}</td>
+                <td>{_esc(raw.get('browser', '-'))}</td>
+                <td>{_esc(raw.get('title', '-'), 30)}</td>
+                <td>{_esc(raw.get('url', '-'), 50)}</td>
+                <td>{_esc(raw.get('last_visited', '-'), 22)}</td>
             </tr>"""
 
     return f"""
@@ -636,14 +636,14 @@ def _build_prefetch_section(prefetch_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('executable_name', '\u2014'), 35)}</td>
-                <td>{raw.get('run_count', '\u2014')}</td>
-                <td>{_esc(raw.get('last_run', '\u2014'), 22)}</td>
-                <td>{_esc(raw.get('pf_filename', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('executable_name', '-'), 35)}</td>
+                <td>{raw.get('run_count', '-')}</td>
+                <td>{_esc(raw.get('last_run', '-'), 22)}</td>
+                <td>{_esc(raw.get('pf_filename', '-'), 30)}</td>
             </tr>"""
 
     return f"""
-        <h2 class="section-heading">12.0 Prefetch \u2014 Execution Evidence</h2>
+        <h2 class="section-heading">12.0 Prefetch - Execution Evidence</h2>
         <table class="data-table">
             <tr>
                 <th style="width: 30%;">Executable</th>
@@ -666,14 +666,14 @@ def _build_usn_section(usn_rows):
         raw = json.loads(row.get('raw_data', '{}'))
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('timestamp', '\u2014'), 22)}</td>
-                <td>{_esc(raw.get('filename', '\u2014'), 35)}</td>
-                <td>{_esc(raw.get('reason_summary', '\u2014'), 35)}</td>
+                <td>{_esc(raw.get('timestamp', '-'), 22)}</td>
+                <td>{_esc(raw.get('filename', '-'), 35)}</td>
+                <td>{_esc(raw.get('reason_summary', '-'), 35)}</td>
                 <td>{'Yes' if raw.get('is_directory') else 'No'}</td>
             </tr>"""
 
     return f"""
-        <h2 class="section-heading">13.0 USN Journal \u2014 File System Changes (All {len(usn_rows)})</h2>
+        <h2 class="section-heading">13.0 USN Journal - File System Changes (All {len(usn_rows)})</h2>
         <table class="data-table">
             <tr>
                 <th style="width: 25%;">Timestamp</th>
@@ -697,15 +697,15 @@ def _build_sigma_section(sigma_rows):
         matched = raw.get('matched_event', {})
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('rule_title', '\u2014'), 35)}</td>
-                <td>{_severity_html(raw.get('rule_level', '\u2014'))}</td>
-                <td>{matched.get('event_id', '\u2014')}</td>
-                <td>{_esc(matched.get('timestamp', '\u2014'), 22)}</td>
-                <td>{_esc(raw.get('sigma_file', '\u2014'), 25)}</td>
+                <td>{_esc(raw.get('rule_title', '-'), 35)}</td>
+                <td>{_severity_html(raw.get('rule_level', '-'))}</td>
+                <td>{matched.get('event_id', '-')}</td>
+                <td>{_esc(matched.get('timestamp', '-'), 22)}</td>
+                <td>{_esc(raw.get('sigma_file', '-'), 25)}</td>
             </tr>"""
 
     return f"""
-        <h2 class="section-heading">14.0 Sigma Alerts \u2014 Behavioral Detections</h2>
+        <h2 class="section-heading">14.0 Sigma Alerts - Behavioral Detections</h2>
         <table class="data-table">
             <tr>
                 <th style="width: 30%;">Rule</th>
@@ -731,14 +731,14 @@ def _build_vt_section(vt_rows):
         status = '<span class="sev-high">MALICIOUS</span>' if is_mal else 'Clean'
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('label', raw.get('meaningful_name', '\u2014')), 30)}</td>
-                <td>{_esc(raw.get('detection_ratio', '\u2014'))}</td>
-                <td>{_esc(raw.get('threat_label', '\u2014'), 30)}</td>
+                <td>{_esc(raw.get('label', raw.get('meaningful_name', '-')), 30)}</td>
+                <td>{_esc(raw.get('detection_ratio', '-'))}</td>
+                <td>{_esc(raw.get('threat_label', '-'), 30)}</td>
                 <td>{status}</td>
             </tr>"""
 
     return f"""
-        <h2 class="section-heading">15.0 VirusTotal \u2014 Hash Reputation</h2>
+        <h2 class="section-heading">15.0 VirusTotal - Hash Reputation</h2>
         <table class="data-table">
             <tr>
                 <th style="width: 30%;">File</th>
@@ -764,8 +764,8 @@ def _build_vss_section(vss_rows):
             [a.get('artifact_type', '') for a in artifacts[:5]]) if artifacts else 'None'
         rows_html += f"""
             <tr>
-                <td>{_esc(raw.get('shadow_id', '\u2014'), 40)}</td>
-                <td>{_esc(raw.get('creation_time', '\u2014'), 25)}</td>
+                <td>{_esc(raw.get('shadow_id', '-'), 40)}</td>
+                <td>{_esc(raw.get('creation_time', '-'), 25)}</td>
                 <td>{_esc(artifact_names, 40)}</td>
             </tr>"""
 
@@ -981,7 +981,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None,
         case_info:              dict with case_id, case_name, investigator_name, target_system
         timeline_data:          list of timeline event dicts (for the timeline section)
         output_path:            where to write the PDF
-        db_manager:             DBManager instance — if provided, enables per-type sections
+        db_manager:             DBManager instance - if provided, enables per-type sections
         investigation_summary:  dict from FindingsEngine (v1.0 intelligence)
     """
     from weasyprint import HTML  # type: ignore[import-untyped]
@@ -1083,7 +1083,7 @@ def generate_pdf_report(case_info, timeline_data, output_path, db_manager=None,
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Official Forensic Report \u2014 {_esc(case_id)}</title>
+    <title>Official Forensic Report - {_esc(case_id)}</title>
     <style>
 {dynamic_css}
     </style>
