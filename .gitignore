@@ -30,6 +30,9 @@ venv/
 *.json
 seal_*.txt
 
+# Generated case reports (never commit real forensic data)
+Generated_Reports/
+
 # IDE
 .idea/
 .vscode/

@@ -1082,9 +1082,18 @@ class ForensicToolkitGUI:
             self.root.after(0, lambda: self._populate_investigation(investigation_summary))
 
             # ── Exports ──
+            # All outputs go into Generated_Reports/<case_id>/ so every user
+            # (Windows, macOS, Linux) has one clear folder to navigate to.
+            reports_root = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "Generated_Reports"
+            )
+            case_report_dir = os.path.join(reports_root, case_id)
+            os.makedirs(case_report_dir, exist_ok=True)
+
             if self.export_pdf.get():
                 safe_name = case_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
-                report_path = f"{case_id}_{safe_name}.pdf"
+                report_path = os.path.join(case_report_dir, f"{case_id}_{safe_name}.pdf")
                 case_info = {
                     'case_id': case_id,
                     'case_name': case_name,
@@ -1094,28 +1103,29 @@ class ForensicToolkitGUI:
                 generate_pdf_report(case_info, self.timeline_data,
                                     report_path, db_manager=db,
                                     investigation_summary=investigation_summary)
-                self._log(f"    ✓ PDF report: {report_path}", "info")
+                self._log(f"    \u2713 PDF report: Generated_Reports/{case_id}/{case_id}_{safe_name}.pdf", "info")
 
             if self.export_json.get():
-                json_path = f"timeline_{case_id}.json"
+                json_path = os.path.join(case_report_dir, f"timeline_{case_id}.json")
                 export_to_json(self.timeline_data, json_path)
-                self._log(f"    ✓ JSON export: {json_path}", "info")
+                self._log(f"    \u2713 JSON export: Generated_Reports/{case_id}/timeline_{case_id}.json", "info")
 
             if self.export_csv.get():
-                csv_path = f"timeline_{case_id}.csv"
+                csv_path = os.path.join(case_report_dir, f"timeline_{case_id}.csv")
                 export_to_csv(self.timeline_data, csv_path)
-                self._log(f"    ✓ CSV export: {csv_path}", "info")
+                self._log(f"    \u2713 CSV export: Generated_Reports/{case_id}/timeline_{case_id}.csv", "info")
 
             # Seal
             if self.export_pdf.get():
                 self._log("")
                 self._log("[*] Sealing artifacts...", "header")
-                sp, sd = seal_report(report_path, db_path, case_id)
+                sp, sd = seal_report(report_path, db_path, case_id, output_dir=case_report_dir)
                 for lbl, info in sd['artifacts'].items():
                     if info.get('sha256'):
                         self._log(f"    [{lbl}] SHA256: "
                                   f"{info['sha256'][:32]}...", "info")
-                self._log(f"    ✓ Seal manifest: seal_{case_id}.txt", "info")
+                self._log(f"    \u2713 Seal manifest: Generated_Reports/{case_id}/seal_{case_id}.txt", "info")
+
 
             self._log("")
             self._log("=" * 55, "header")

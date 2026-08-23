@@ -297,7 +297,53 @@ python gui.py
 
 ---
 
-## 💻 CLI Reference
+## 📂 Output Structure
+
+After every investigation, **all reports are saved in one place** — the `Generated_Reports/` folder inside the TriageHound directory. Each case gets its own dedicated subfolder named after the Case ID you entered in the GUI.
+
+```
+TriageHound/
+└── Generated_Reports/
+    ├── IR-WIN-2025/                        ← Windows investigation
+    │   ├── IR-WIN-2025_Windows_Endpoint_Triage.pdf
+    │   ├── timeline_IR-WIN-2025.json
+    │   ├── timeline_IR-WIN-2025.csv
+    │   └── seal_IR-WIN-2025.txt            ← SHA-256 chain-of-custody seal
+    │
+    ├── IR-MAC-2026/                        ← macOS investigation
+    │   ├── IR-MAC-2026_macOS_Endpoint_Triage.pdf
+    │   ├── timeline_IR-MAC-2026.json
+    │   └── seal_IR-MAC-2026.txt
+    │
+    └── IR-LIN-2025/                        ← Linux investigation
+        ├── IR-LIN-2025_Linux_Endpoint_Triage.pdf
+        ├── timeline_IR-LIN-2025.json
+        └── seal_IR-LIN-2025.txt
+```
+
+### 📥 Open or Export the PDF
+
+| OS | Command |
+|---|---|
+| **Windows** | `start Generated_Reports\IR-WIN-2025\IR-WIN-2025_Windows_Endpoint_Triage.pdf` |
+| **macOS** | `open ~/TriageHound/Generated_Reports/IR-MAC-2026/IR-MAC-2026_macOS_Endpoint_Triage.pdf` |
+| **Linux** | `xdg-open ~/TriageHound/Generated_Reports/IR-LIN-2025/IR-LIN-2025_Linux_Endpoint_Triage.pdf` |
+
+Copy to Downloads for easy sharing:
+
+```bash
+# macOS
+cp ~/TriageHound/Generated_Reports/IR-MAC-2026/*.pdf ~/Downloads/
+
+# Linux
+cp ~/TriageHound/Generated_Reports/IR-LIN-2025/*.pdf ~/Downloads/
+
+# Windows (PowerShell)
+Copy-Item "Generated_Reports\IR-WIN-2025\*.pdf" "$env:USERPROFILE\Downloads\"
+```
+
+---
+
 
 ```bash
 python main.py --case <CASE_ID> --investigator <NAME> --target <HOSTNAME> [OPTIONS]
