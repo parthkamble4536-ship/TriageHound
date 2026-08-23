@@ -245,25 +245,68 @@ Despite the attacker deleting Prefetch files AND clearing event logs, TriageHoun
 
 ## 📸 Screenshots
 
-> **Add your own screenshots here before publishing to GitHub!**
-
-<!-- Uncomment and replace with your actual screenshots:
-### GUI — Main Interface
-![TriageHound GUI](screenshots/gui_main.png)
-
-### PDF Report — Executive Summary
-![PDF Report](screenshots/report_cover.png)
-
-### PDF Report — YARA & Sigma Alerts
-![Alert Section](screenshots/report_alerts.png)
-
-### CLI — Full Triage Output
-![CLI Output](screenshots/cli_output.png)
--->
-
-*To add screenshots: run the tool, take screenshots of the GUI and PDF, save them in a `screenshots/` folder, and uncomment the lines above.*
+> Real screenshots captured from live triage sessions on all three supported platforms.
 
 ---
+
+### 🪟 Windows v1.0
+
+**GUI — Collection Log (Investigation Running)**
+![Windows GUI - Collection Log](screenshots/Windows/1.png)
+
+**GUI — Super Timeline (ShimCache Entries)**
+![Windows GUI - Timeline](screenshots/Windows/2.png)
+
+**GUI — Investigation Summary (40/100 MEDIUM — PowerShell Detected)**
+![Windows GUI - Investigation](screenshots/Windows/3.png)
+
+**GUI — Module Status (13/13 Done)**
+![Windows GUI - Module Status](screenshots/Windows/5.png)
+
+**📄 PDF Report** — [IR-WIN-2026\_Windows\_Endpoint\_Triage.pdf](screenshots/Windows/IR-WIN-2026_Windows_Endpoint_Triage.pdf)
+
+---
+
+### 🍎 macOS v2.0
+
+**GUI — Collection Log (Investigation Complete, 50/100 MEDIUM)**
+![macOS GUI - Collection Log](screenshots/MAC/1.jpeg)
+
+**GUI — Super Timeline (Live Processes)**
+![macOS GUI - Timeline](screenshots/MAC/2.jpeg)
+
+**GUI — Investigation Summary (3 Findings — LaunchAgent + zsh + python Detected)**
+![macOS GUI - Investigation](screenshots/MAC/3.jpeg)
+
+**GUI — Module Status (13/13 Done)**
+![macOS GUI - Module Status](screenshots/MAC/4.jpeg)
+
+**📄 PDF Report** — [IR-MAC-2026\_MacOS\_Endpoint\_Triage.pdf](screenshots/MAC/IR-MAC-2026_MacOS_Endpoint_Triage.pdf)
+
+---
+
+### 🐧 Linux v3.0
+
+**CLI — Setup & Installation (git clone + pip install)**
+![Linux CLI - Installation](screenshots/Linux/1.png)
+
+**GUI — Collection Log (Investigation Complete, 20/100 LOW)**
+![Linux GUI - Collection Log](screenshots/Linux/2.png)
+
+**GUI — Super Timeline (Running Processes)**
+![Linux GUI - Timeline](screenshots/Linux/3.png)
+
+**GUI — Investigation Summary (2 Findings — Attack Chain Detected)**
+![Linux GUI - Investigation](screenshots/Linux/4.png)
+
+**GUI — Module Status (14/14 Done)**
+![Linux GUI - Module Status](screenshots/Linux/5.png)
+
+**📄 PDF Report** — [IR-LIN-2026\_Linux\_Endpoint\_Triage.pdf](screenshots/Linux/IR-LIN-2026_Linux_Endpoint_Triage.pdf)
+
+---
+
+
 
 ## 🚀 Quick Start
 
