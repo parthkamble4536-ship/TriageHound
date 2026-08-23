@@ -736,6 +736,7 @@ class ForensicToolkitGUI:
                 advance()
 
             # ── Startup entries ──
+            entries = []
             if self.mod_startup.get():
                 t0 = datetime.now()
                 self._log("[*] Collecting startup entries...", "header")
@@ -1090,6 +1091,7 @@ class ForensicToolkitGUI:
             )
             case_report_dir = os.path.join(reports_root, case_id)
             os.makedirs(case_report_dir, exist_ok=True)
+            report_path = None
 
             if self.export_pdf.get():
                 safe_name = case_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
