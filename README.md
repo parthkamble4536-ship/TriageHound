@@ -364,15 +364,13 @@ TriageHound/
         └── seal_IR-LIN-2025.txt
 ```
 
-### 📥 Open or Export the PDF
+### 📥 Open or Export the Reports
 
-| OS | Command |
-|---|---|
-| **Windows** | `start Generated_Reports\IR-WIN-2025\IR-WIN-2025_Windows_Endpoint_Triage.pdf` |
-| **macOS** | `open ~/TriageHound/Generated_Reports/IR-MAC-2026/IR-MAC-2026_macOS_Endpoint_Triage.pdf` |
-| **Linux** | `xdg-open ~/TriageHound/Generated_Reports/IR-LIN-2025/IR-LIN-2025_Linux_Endpoint_Triage.pdf` |
+**The easiest way to view your reports is to simply click the `📁 Open Reports` button in the top-right corner of the GUI!** 
 
-Copy to Downloads for easy sharing:
+Because TriageHound is fully cross-platform, this button automatically detects your Operating System and natively pops open the exact `Generated_Reports/<Case_ID>` folder on your screen, whether you are running on Windows (`explorer.exe`), macOS (`Finder`), or Linux (`xdg-open`).
+
+If you prefer to copy them manually to your Downloads folder for easy sharing:
 
 ```bash
 # macOS
