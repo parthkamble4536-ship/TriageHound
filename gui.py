@@ -1123,14 +1123,14 @@ class ForensicToolkitGUI:
                 self._log(f"    \u2713 PDF report: Generated_Reports/{case_id}/{case_id}_{safe_name}.pdf", "info")
 
             if self.export_json.get():
-                json_path = os.path.join(case_report_dir, f"timeline_{case_id}.json")
+                json_path = os.path.join(case_report_dir, f"timeline_{safe_case_id}.json")
                 export_to_json(self.timeline_data, json_path)
-                self._log(f"    \u2713 JSON export: Generated_Reports/{case_id}/timeline_{case_id}.json", "info")
+                self._log(f"    \u2713 JSON export: Generated_Reports/{safe_case_id}/timeline_{safe_case_id}.json", "info")
 
             if self.export_csv.get():
-                csv_path = os.path.join(case_report_dir, f"timeline_{case_id}.csv")
+                csv_path = os.path.join(case_report_dir, f"timeline_{safe_case_id}.csv")
                 export_to_csv(self.timeline_data, csv_path)
-                self._log(f"    \u2713 CSV export: Generated_Reports/{case_id}/timeline_{case_id}.csv", "info")
+                self._log(f"    \u2713 CSV export: Generated_Reports/{safe_case_id}/timeline_{safe_case_id}.csv", "info")
 
             # Seal
             if self.export_pdf.get():
