@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import os
 import platform
+import subprocess
 from datetime import datetime
 
 from database.db_manager import DBManager
@@ -272,6 +273,9 @@ class ForensicToolkitGUI:
                                   style="Run.TButton",
                                   command=self._run_investigation)
         self.run_btn.pack(side=tk.LEFT)
+
+        ttk.Button(btn_frame, text="📁 Open Reports", style="Secondary.TButton",
+                   command=self._open_reports_folder).pack(side=tk.LEFT, padx=(8, 0))
 
         ttk.Button(btn_frame, text="🔑 Hash", style="Secondary.TButton",
                    command=self._hash_file_dialog).pack(side=tk.LEFT, padx=(8, 0))
@@ -1215,6 +1219,34 @@ class ForensicToolkitGUI:
             w.insert(tk.END, "\n")
 
         w.configure(state=tk.DISABLED)
+
+    def _open_reports_folder(self):
+        """Cross-platform method to open the current case's report directory in the native file explorer."""
+        case_id = self.case_id_var.get().strip()
+        if not case_id:
+            messagebox.showwarning("Warning", "Please enter a Case ID.")
+            return
+
+        reports_root = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "Generated_Reports"
+        )
+        case_report_dir = os.path.join(reports_root, case_id)
+
+        if not os.path.exists(case_report_dir):
+            messagebox.showinfo("No Reports", f"No reports found for Case ID: {case_id}\n\nPlease run an investigation first.")
+            return
+
+        try:
+            # Cross-platform logic to open a folder
+            if platform.system() == "Windows":
+                os.startfile(case_report_dir)
+            elif platform.system() == "Darwin": # macOS
+                subprocess.run(["open", case_report_dir], check=True)
+            else: # Linux
+                subprocess.run(["xdg-open", case_report_dir], check=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open reports folder:\n{e}")
 
 
 def main():
