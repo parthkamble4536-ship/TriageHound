@@ -1242,7 +1242,8 @@ class ForensicToolkitGUI:
             os.path.dirname(os.path.abspath(__file__)),
             "Generated_Reports"
         )
-        case_report_dir = os.path.join(reports_root, case_id)
+        safe_case_id = case_id.replace('/', '-').replace('\\', '-').replace(' ', '_')
+        case_report_dir = os.path.join(reports_root, safe_case_id)
 
         if not os.path.exists(case_report_dir):
             messagebox.showinfo("No Reports", f"No reports found for Case ID: {case_id}\n\nPlease run an investigation first.")
