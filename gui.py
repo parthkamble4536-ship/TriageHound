@@ -661,7 +661,18 @@ class ForensicToolkitGUI:
 
     def _collect(self, case_id, case_name, investigator, target):
         try:
-            db_path = f"forensics_{case_id}.db"
+            # Create a filesystem-safe Case ID
+            safe_case_id = case_id.replace('/', '-').replace('\\', '-').replace(' ', '_')
+            
+            # Ensure the output directory exists before creating the DB
+            reports_root = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "Generated_Reports"
+            )
+            case_report_dir = os.path.join(reports_root, safe_case_id)
+            os.makedirs(case_report_dir, exist_ok=True)
+
+            db_path = os.path.join(case_report_dir, f"forensics_{safe_case_id}.db")
             if os.path.exists(db_path):
                 os.remove(db_path)
 
@@ -1087,19 +1098,19 @@ class ForensicToolkitGUI:
             self.root.after(0, lambda: self._populate_investigation(investigation_summary))
 
             # ── Exports ──
-            # All outputs go into Generated_Reports/<case_id>/ so every user
-            # (Windows, macOS, Linux) has one clear folder to navigate to.
+            # All outputs go into Generated_Reports/<safe_case_id>/
+            safe_case_id = case_id.replace(' ', '_').replace('/', '-').replace('\\', '-')
             reports_root = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "Generated_Reports"
             )
-            case_report_dir = os.path.join(reports_root, case_id)
+            case_report_dir = os.path.join(reports_root, safe_case_id)
             os.makedirs(case_report_dir, exist_ok=True)
             report_path = None
 
             if self.export_pdf.get():
                 safe_name = case_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
-                report_path = os.path.join(case_report_dir, f"{case_id}_{safe_name}.pdf")
+                report_path = os.path.join(case_report_dir, f"{safe_case_id}_{safe_name}.pdf")
                 case_info = {
                     'case_id': case_id,
                     'case_name': case_name,
@@ -1125,12 +1136,12 @@ class ForensicToolkitGUI:
             if self.export_pdf.get():
                 self._log("")
                 self._log("[*] Sealing artifacts...", "header")
-                sp, sd = seal_report(report_path, db_path, case_id, output_dir=case_report_dir)
+                sp, sd = seal_report(report_path, db_path, safe_case_id, output_dir=case_report_dir)
                 for lbl, info in sd['artifacts'].items():
                     if info.get('sha256'):
                         self._log(f"    [{lbl}] SHA256: "
                                   f"{info['sha256'][:32]}...", "info")
-                self._log(f"    \u2713 Seal manifest: Generated_Reports/{case_id}/seal_{case_id}.txt", "info")
+                self._log(f"    \u2713 Seal manifest: Generated_Reports/{safe_case_id}/seal_{safe_case_id}.txt", "info")
 
 
             self._log("")
