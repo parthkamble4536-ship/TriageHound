@@ -1,10 +1,28 @@
+import sys
+import os
+import platform
+
+# ── macOS Homebrew DYLD_LIBRARY_PATH Bootstrap ─────────────────────────────
+# WeasyPrint (used for PDF generation) needs libpango/libgobject from Homebrew.
+# sudo strips DYLD_LIBRARY_PATH, so we must self-restart with it set explicitly
+# BEFORE any other imports so the macOS dynamic linker picks it up on startup.
+if platform.system() == 'darwin':
+    _hb_lib = '/opt/homebrew/lib'      # Apple Silicon
+    _hb_lib_intel = '/usr/local/lib'   # Intel Mac
+    _current_dyld = os.environ.get('DYLD_LIBRARY_PATH', '')
+    if _hb_lib not in _current_dyld and _hb_lib_intel not in _current_dyld:
+        _new_dyld = ':'.join(filter(None, [_hb_lib, _hb_lib_intel, _current_dyld]))
+        os.environ['DYLD_LIBRARY_PATH'] = _new_dyld
+        # Re-launch this exact script with the corrected environment
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+# ───────────────────────────────────────────────────────────────────────────
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
-import os
-import platform
 import subprocess
 from datetime import datetime
+
 
 from database.db_manager import DBManager
 from modules.hashing import hash_file
