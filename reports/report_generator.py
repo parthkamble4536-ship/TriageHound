@@ -14,30 +14,44 @@ if sys.platform == 'win32':
     if os.path.isdir(_gtk_path):
         os.add_dll_directory(_gtk_path)
 
-# ── macOS Homebrew library pre-loading (required for WeasyPrint) ──────────────
-# On macOS, DYLD_LIBRARY_PATH is stripped by sudo and SIP. WeasyPrint needs
-# libgobject and libpango from Homebrew. We pre-load them via ctypes so the
-# dynamic linker resolves them before WeasyPrint attempts its own import.
-# Supports both Apple Silicon (/opt/homebrew) and Intel Macs (/usr/local).
+# ── macOS Homebrew library finder patch (required for WeasyPrint) ─────────────
+# macOS System Integrity Protection (SIP) strips DYLD_LIBRARY_PATH from ALL
+# processes, even after os.execv restarts. ctypes pre-loading also doesn't help
+# because WeasyPrint's dependencies (cairocffi, pangocffi) use
+# ctypes.util.find_library() to locate shared libs at import time.
+#
+# The only reliable fix: monkey-patch find_library to search Homebrew's lib
+# directories. This works regardless of sudo, SIP, or Mac architecture.
 if sys.platform == 'darwin':
-    import ctypes
-    _homebrew_lib_dirs = ['/opt/homebrew/lib', '/usr/local/lib']
-    _libs_to_preload = [
-        'libgobject-2.0.0.dylib',
-        'libglib-2.0.0.dylib',
-        'libpango-1.0.0.dylib',
-        'libpangoft2-1.0.0.dylib',
-        'libcairo.2.dylib',
-    ]
-    for _lib_dir in _homebrew_lib_dirs:
-        if os.path.isdir(_lib_dir):
-            for _lib_name in _libs_to_preload:
-                _lib_path = os.path.join(_lib_dir, _lib_name)
-                if os.path.exists(_lib_path):
-                    try:
-                        ctypes.cdll.LoadLibrary(_lib_path)
-                    except OSError:
-                        pass
+    import ctypes.util
+    _original_find_library = ctypes.util.find_library
+    _HOMEBREW_LIB_DIRS = ['/opt/homebrew/lib', '/usr/local/lib']
+
+    def _patched_find_library(name):
+        """Search Homebrew lib dirs first, then fall back to the OS default."""
+        # Common library name patterns on macOS
+        for lib_dir in _HOMEBREW_LIB_DIRS:
+            if not os.path.isdir(lib_dir):
+                continue
+            for pattern in [
+                f'lib{name}.dylib',
+                f'lib{name}.0.dylib',
+                f'{name}.dylib',
+            ]:
+                full_path = os.path.join(lib_dir, pattern)
+                if os.path.exists(full_path):
+                    return full_path
+            # Also do a prefix scan for versioned names like libgobject-2.0.0.dylib
+            try:
+                for f in os.listdir(lib_dir):
+                    if f.startswith(f'lib{name}') and f.endswith('.dylib'):
+                        return os.path.join(lib_dir, f)
+            except OSError:
+                continue
+        # Fall back to the original system finder
+        return _original_find_library(name)
+
+    ctypes.util.find_library = _patched_find_library
 
 
 # ── Report ID Counter ─────────────────────────────────────────────────────────
