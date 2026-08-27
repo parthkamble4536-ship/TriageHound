@@ -14,6 +14,31 @@ if sys.platform == 'win32':
     if os.path.isdir(_gtk_path):
         os.add_dll_directory(_gtk_path)
 
+# ── macOS Homebrew library pre-loading (required for WeasyPrint) ──────────────
+# On macOS, DYLD_LIBRARY_PATH is stripped by sudo and SIP. WeasyPrint needs
+# libgobject and libpango from Homebrew. We pre-load them via ctypes so the
+# dynamic linker resolves them before WeasyPrint attempts its own import.
+# Supports both Apple Silicon (/opt/homebrew) and Intel Macs (/usr/local).
+if sys.platform == 'darwin':
+    import ctypes
+    _homebrew_lib_dirs = ['/opt/homebrew/lib', '/usr/local/lib']
+    _libs_to_preload = [
+        'libgobject-2.0.0.dylib',
+        'libglib-2.0.0.dylib',
+        'libpango-1.0.0.dylib',
+        'libpangoft2-1.0.0.dylib',
+        'libcairo.2.dylib',
+    ]
+    for _lib_dir in _homebrew_lib_dirs:
+        if os.path.isdir(_lib_dir):
+            for _lib_name in _libs_to_preload:
+                _lib_path = os.path.join(_lib_dir, _lib_name)
+                if os.path.exists(_lib_path):
+                    try:
+                        ctypes.cdll.LoadLibrary(_lib_path)
+                    except OSError:
+                        pass
+
 
 # ── Report ID Counter ─────────────────────────────────────────────────────────
 
