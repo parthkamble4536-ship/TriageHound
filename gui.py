@@ -1152,9 +1152,10 @@ class ForensicToolkitGUI:
                 "✓ Investigation complete"))
 
         except Exception as e:
-            self._log(f"\n[ERROR] {e}", "error")
+            error_msg = str(e)
+            self._log(f"\n[ERROR] {error_msg}", "error")
             self._update_stat("modules", "Error", "StatRed.TLabel")
-            self.root.after(0, lambda: self.status_var.set(f"Error: {e}"))
+            self.root.after(0, lambda err=error_msg: self.status_var.set(f"Error: {err}"))
 
         finally:
             self.root.after(0, lambda: self.run_btn.configure(state=tk.NORMAL))
