@@ -322,6 +322,10 @@ No installation required. Just plug in your USB and run.
 
 Requires Python 3.11+.
 
+> **🍎 macOS Users:** The PDF report generator (WeasyPrint) requires system graphics libraries to render the PDF. Before running `pip install`, you must install these via Homebrew:
+> `brew install pango glib`
+
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/parthkamble4536-ship/TriageHound.git
